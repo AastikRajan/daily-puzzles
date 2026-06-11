@@ -59,8 +59,9 @@ export function gradeSudoku(givens: number[]): Difficulty {
 export function generateSudoku(seed: string, difficulty: Difficulty): SudokuPuzzle {
   const rng = new Rng(`sudoku:${seed}:${difficulty}`);
   const target = TARGET_TIER[difficulty];
-  // easy keeps more clues; hard digs as deep as uniqueness allows
-  const minClues: Record<Difficulty, number> = { easy: 38, medium: 30, hard: 17 };
+  // easy keeps more clues; medium/hard dig deep enough that the technique
+  // tier actually rises (digging stops early only for easy)
+  const minClues: Record<Difficulty, number> = { easy: 38, medium: 26, hard: 17 };
 
   for (let attempt = 0; attempt < 60; attempt++) {
     const solution = fillGrid(rng);
