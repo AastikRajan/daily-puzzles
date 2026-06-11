@@ -1,0 +1,23 @@
+{
+  "name": "daily-logic",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test -w @daily-logic/engine",
+    "test:full": "npm run test:full -w @daily-logic/engine",
+    "typecheck": "npm run typecheck -w @daily-logic/engine && npm run typecheck -w web",
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "preview": "npm run preview -w web",
+    "e2e": "npm run e2e -w web"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

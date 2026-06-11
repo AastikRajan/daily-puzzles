@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+playwright-report/
+test-results/
+*.local
+.DS_Store
+Thumbs.db
+ios/
+android/
+.lighthouseci/
