@@ -5,6 +5,7 @@
 import Matter from 'matter-js';
 import type { ShapeDef } from './shapes';
 import { tap, pop } from '../lib/haptics';
+import { sfxClick, sfxDeath, sfxStart, sfxEat } from '../lib/sfx';
 
 const W = 390;            // logical scene width
 const H = 560;            // logical scene height
@@ -121,6 +122,7 @@ export class BalanceSim {
   }
 
   rotateHold(): void {
+    sfxClick();
     this.holdAngle += Math.PI / 12;
   }
 
@@ -131,6 +133,7 @@ export class BalanceSim {
     Matter.World.add(this.engine.world, body);
     this.placedBodies.push(body);
     this.nextIdx++;
+    sfxEat();
     this.holdPos = null;
     this.holdAngle = 0;
     tap();
@@ -197,6 +200,7 @@ export class BalanceSim {
   private fail(): void {
     this.attemptResults.push(this.nextIdx);
     this.phase = 'failed';
+    sfxDeath();
     pop();
     this.emit();
   }
@@ -204,6 +208,7 @@ export class BalanceSim {
   private win(): void {
     this.attemptResults.push(-1);
     this.phase = 'won';
+    sfxStart();
     pop();
     this.emit();
   }

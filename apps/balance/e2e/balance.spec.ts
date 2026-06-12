@@ -27,6 +27,7 @@ test('auto-place progresses the stack; mid-game screenshot', async ({ page }) =>
   await page.goto('./');
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await page.waitForFunction(() => typeof window.__balance !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
   // place shapes one by one, waiting for things to calm between drops
   for (let i = 0; i < 8; i++) {
@@ -52,6 +53,7 @@ test('forceFail increments attempt and retry restarts; share after day done', as
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__balance !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
   await page.evaluate(() => window.__balance.placeAuto());
   await page.waitForTimeout(800);
@@ -87,6 +89,7 @@ test('forceFail increments attempt and retry restarts; share after day done', as
 test('dark theme screenshot', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__balance !== 'undefined');
+  await page.getByTestId('start-btn').click();
   await page.getByLabel('Toggle theme').click();
   await page.evaluate(() => window.__balance.placeAuto());
   await page.waitForTimeout(1200);

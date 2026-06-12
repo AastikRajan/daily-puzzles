@@ -6,6 +6,7 @@ import { dailyShapes } from '../game/shapes';
 import { buildBalanceShare, shareText } from '../lib/share';
 import { load, save } from '../lib/storage';
 import { useSettings } from '../state/settings';
+import { sfxStart } from '../lib/sfx';
 
 function fmtCountdown(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -26,6 +27,7 @@ export default function GameView() {
   });
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'shared'>('idle');
   const [countdown, setCountdown] = useState(msUntilNextPuzzle());
+  const [started, setStarted] = useState(false);
   const theme = useSettings((s) => s.theme);
   const setSettings = useSettings((s) => s.set);
   const shapes = useRef(dailyShapes(date));
@@ -40,7 +42,7 @@ export default function GameView() {
     );
     simRef.current = sim;
     const fit = () => {
-      const w = Math.min(window.innerWidth - 16, 470);
+      const w = Math.min(window.innerWidth - 16, (window.innerHeight - 150) / 1.436, 760);
       sim.resize(w, Math.round(w * 1.436), canvas);
     };
     fit();
@@ -130,6 +132,27 @@ export default function GameView() {
           onPointerUp={() => simRef.current?.dropHold()}
           onPointerCancel={() => simRef.current?.setHold(null)}
         />
+        {!started && (
+          <div className="start-overlay" data-testid="start-overlay">
+            <h1 className="start-title">Balance!</h1>
+            <p className="start-sub">today's 8 shapes — same for everyone</p>
+            <div className="howto-row">
+              <span>👆 drag = place</span>
+              <span>⟳ rotate</span>
+              <span>5 tries · don't topple</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={() => {
+                sfxStart();
+                setStarted(true);
+              }}
+            >
+              ▶ &nbsp;PLAY
+            </button>
+          </div>
+        )}
         <button className="chip rotate-btn" onClick={() => simRef.current?.rotateHold()} aria-label="Rotate shape">
           ⟳ Rotate
         </button>
