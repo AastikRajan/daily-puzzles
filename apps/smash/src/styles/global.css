@@ -160,6 +160,10 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .game-canvas {
@@ -171,7 +175,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 }
 
 .hud {
-  position: fixed;
+  position: absolute;
   top: calc(10px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
@@ -201,7 +205,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 .chip strong { color: var(--ink); }
 
 .theme-btn {
-  position: fixed;
+  position: absolute;
   top: calc(10px + env(safe-area-inset-top, 0px));
   right: 12px;
   z-index: 5;
@@ -209,7 +213,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 }
 
 .hint-text {
-  position: fixed;
+  position: absolute;
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
@@ -224,7 +228,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 
 /* fireball meter */
 .fire-meter-wrap {
-  position: fixed;
+  position: absolute;
   bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
@@ -255,7 +259,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 }
 
 .overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
@@ -323,4 +327,97 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   font-size: 26px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* ——— full-bleed portrait layout ——— */
+.game-scene {
+  position: relative;
+  width: min(100vw, calc(100dvh * 9 / 16));
+  height: 100dvh;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.gutter {
+  position: fixed;
+  top: 0; bottom: 0;
+  width: calc((100vw - min(100vw, calc(100dvh * 9 / 16))) / 2);
+  z-index: 1;
+  pointer-events: none;
+  /* decorated: scene's own navy gradient + subtle diagonal pattern, never dead black */
+  background:
+    repeating-linear-gradient(135deg, rgba(120,130,255,0.04) 0 2px, transparent 2px 18px),
+    linear-gradient(180deg, hsl(250, 30%, 11%) 0%, hsl(235, 28%, 7%) 55%, hsl(225, 25%, 5%) 100%);
+}
+.gutter.left { left: 0; }
+.gutter.right { right: 0; }
+.gutter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.5) 100%);
+}
+
+/* ——— start overlay ——— */
+.start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(60% 50% at 50% 42%, rgba(5,3,18,0.18) 0%, rgba(5,3,18,0.82) 100%);
+  z-index: 20;
+  padding: 24px;
+  text-align: center;
+}
+
+.start-title {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 9vw, 72px);
+  font-weight: 800;
+  margin: 0;
+  background: var(--g-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 22px rgba(255,106,0,0.35));
+}
+
+.start-sub {
+  font-size: clamp(13px, 2.4vw, 17px);
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: -8px 0 4px;
+}
+
+.howto-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.howto-row span {
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 12px;
+  padding: 7px 12px;
+  box-shadow: 0 2px 0 var(--edge-shadow);
+}
+
+.start-btn {
+  font-size: 20px;
+  padding: 16px 48px;
+  margin-top: 8px;
+  animation: start-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes start-glow {
+  0%, 100% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 18px rgba(255,106,0,0.28); }
+  50% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 42px rgba(255,106,0,0.65); }
 }

@@ -1,22 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { FlockGame, FLOCK_SCENE, type FlockHud } from '../game/game';
+import { FlockGame, type FlockHud } from '../game/game';
 import { useSettings } from '../state/settings';
+import { sfxClick, isMuted, setMuted } from '../lib/sfx';
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<FlockGame | null>(null);
-  const [hud, setHud] = useState<FlockHud>({ count: 0, delivered: 0, need: 20, level: 1, best: 1, phase: 'playing' });
-  const theme = useSettings((s) => s.theme);
-  const setSettings = useSettings((s) => s.set);
+  const [hud, setHud] = useState<FlockHud>({ count: 0, delivered: 0, need: 20, level: 1, best: 1, phase: 'ready' });
+  const [muted, setMutedState] = useState(() => isMuted());
 
   useEffect(() => {
     const canvas = canvasRef.current!;
     const game = new FlockGame(canvas, (h) => setHud(h), () => useSettings.getState().reducedMotion);
     gameRef.current = game;
     const fit = () => {
-      const w = Math.min(window.innerWidth, 560);
-      game.resize(w, Math.min(window.innerHeight, w * (FLOCK_SCENE.H / FLOCK_SCENE.W)), canvas);
+      game.resize(window.innerWidth, window.innerHeight, canvas);
     };
     fit();
     window.addEventListener('resize', fit);
@@ -33,44 +32,91 @@ export default function GameView() {
   }, [hud.phase]);
 
   const toScene = (e: React.PointerEvent) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const scale = FLOCK_SCENE.W / rect.width;
-    return { x: (e.clientX - rect.left) * scale, y: (e.clientY - rect.top) * scale };
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    // Scene is scaled to fit height, centered horizontally
+    const sceneH = rect.height;
+    const sceneW = sceneH * (390 / 700);
+    const sceneLeft = rect.left + (rect.width - sceneW) / 2;
+    const scale = 390 / sceneW;
+    return {
+      x: (e.clientX - sceneLeft) * scale,
+      y: (e.clientY - rect.top) * scale,
+    };
   };
+
+  const handleMuteToggle = () => {
+    sfxClick();
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  };
+
+  const isPlaying = hud.phase !== 'ready';
 
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
+          if (hud.phase !== 'playing') return;
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
           gameRef.current?.setPointer(toScene(e));
         }}
         onPointerMove={(e) => {
-          if (e.buttons > 0) gameRef.current?.setPointer(toScene(e));
+          if (e.buttons > 0 && hud.phase === 'playing') gameRef.current?.setPointer(toScene(e));
         }}
         onPointerUp={() => gameRef.current?.setPointer(null)}
         onPointerCancel={() => gameRef.current?.setPointer(null)}
       />
 
-      <div className="hud">
-        <span className="chip">Lv <strong data-testid="hud-level">{hud.level}</strong></span>
-        <span className="chip">🪰 <strong data-testid="hud-count">{hud.count}</strong></span>
-        <span className="chip">🏠 <strong data-testid="hud-delivered">{hud.delivered}/{hud.need}</strong></span>
-      </div>
+      {isPlaying && (
+        <div className="hud">
+          <span className="chip">Lv <strong data-testid="hud-level">{hud.level}</strong></span>
+          <span className="chip">🪰 <strong data-testid="hud-count">{hud.count}</strong></span>
+          <span className="chip">🏠 <strong data-testid="hud-delivered">{hud.delivered}/{hud.need}</strong></span>
+        </div>
+      )}
+
       <button
-        className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
+        className="chip mute-btn"
+        onClick={handleMuteToggle}
+        aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">Hold to lead the swarm · gates grow it · deliver fireflies home</p>
+      {isPlaying && (
+        <p className="hint-text">Hold to lead the swarm · gates grow it · deliver fireflies home</p>
+      )}
 
-      {hud.phase !== 'playing' && (
+      {hud.phase === 'ready' && (
+        <div className="overlay start-overlay" data-testid="start-overlay">
+          <div className="card start-card">
+            <h1 className="start-title">Flock!</h1>
+            <p className="start-sub">lead the swarm home</p>
+            <div className="howto-row">
+              <span className="howto-chip">👆 hold = lead</span>
+              <span className="howto-chip">gates grow it</span>
+              <span className="howto-chip">🏠 = deliver</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={() => {
+                sfxClick();
+                gameRef.current?.start();
+              }}
+            >
+              Play
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(hud.phase === 'won' || hud.phase === 'lost') && (
         <div className="overlay" role="dialog" data-testid="result-overlay">
           <div className="card">
             <h2>{hud.phase === 'won' ? 'Delivered!' : 'Swarm lost…'}</h2>

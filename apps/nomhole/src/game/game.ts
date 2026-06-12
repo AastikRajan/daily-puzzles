@@ -4,6 +4,7 @@
  */
 import { tap, gulp, roundEnd } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxGulp, sfxRoundEnd, sfxStart } from '../lib/sfx';
 
 // ——— constants ———
 export const WORLD = 1600;
@@ -73,7 +74,7 @@ export interface HudState {
   best: number;
   timeLeft: number; // seconds, ceil
   combo: number;
-  phase: 'playing' | 'over';
+  phase: 'ready' | 'playing' | 'over';
   eaten: number;
   total: number;
 }
@@ -85,6 +86,7 @@ export class NomHoleGame {
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
   private viewW = 390;
   private viewH = 844;
+  private zoom = 1;
 
   private holeX = WORLD / 2;
   private holeY = WORLD / 2;
@@ -101,7 +103,7 @@ export class NomHoleGame {
   private eaten = 0;
 
   private timeLeft = ROUND_SEC; // seconds (float, counts down)
-  private phase: 'playing' | 'over' = 'playing';
+  private phase: 'ready' | 'playing' | 'over' = 'ready';
 
   private pointer: { x: number; y: number } | null = null;
   private pulse = 0; // screen pulse 0..1
@@ -109,6 +111,8 @@ export class NomHoleGame {
   private lastT = 0;
   private rafId = 0;
   private destroyed = false;
+
+  private hitstopUntil = 0;
 
   private onHud: (h: HudState) => void;
   private reducedMotion: () => boolean;
@@ -137,6 +141,7 @@ export class NomHoleGame {
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
     this.viewW = w;
     this.viewH = h;
+    this.zoom = Math.max(0.9, Math.min(w, h) / 800);
     canvas.width = w * this.dpr;
     canvas.height = h * this.dpr;
     canvas.style.width = `${w}px`;
@@ -145,6 +150,14 @@ export class NomHoleGame {
 
   setPointer(p: { x: number; y: number } | null): void {
     this.pointer = p;
+  }
+
+  /** Transition ready → playing */
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emitHud();
   }
 
   restart(): void {
@@ -161,6 +174,7 @@ export class NomHoleGame {
     this.floats = [];
     this.pulse = 0;
     this.pointer = null;
+    this.hitstopUntil = 0;
     this.buildCity(Math.random());
     this.emitHud();
   }
@@ -252,6 +266,7 @@ export class NomHoleGame {
         }
       },
       restart: () => this.restart(),
+      start: () => this.start(),
       eatNearest: () => {
         if (this.phase !== 'playing') return;
         // Find nearest eatable (alive, r <= holeR) and teleport hole onto it
@@ -279,7 +294,8 @@ export class NomHoleGame {
 
   private loop = (t: number): void => {
     if (this.destroyed) return;
-    const dt = Math.min((t - this.lastT) / 1000, 0.1); // seconds, capped
+    const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+    const dt = Math.min((t - this.lastT) / 1000, 0.1) * scale; // seconds, capped
     this.lastT = t;
 
     if (document.visibilityState === 'visible') {
@@ -335,7 +351,7 @@ export class NomHoleGame {
       this.emitHud();
     }
 
-    // animate eating objects
+    // animate eating objects (runs in all phases for smooth anim after phase change)
     for (const obj of this.objects) {
       if (obj.eatProgress <= 0 || !obj.alive) continue;
       const elapsed = t - obj.eatStartAt;
@@ -364,7 +380,7 @@ export class NomHoleGame {
     // pulse decay
     this.pulse = Math.max(0, this.pulse - dt * 5);
 
-    // swirl animation
+    // swirl animation (always runs so hole looks alive in ready phase too)
     this.swirlAngle += dt * 2.5;
   }
 
@@ -399,12 +415,18 @@ export class NomHoleGame {
     const grow = tier * 0.8;
     this.holeR = Math.min(HOLE_MAX_R, this.holeR + grow);
 
+    // hitstop for big objects
+    if (tier >= 5) this.hitstopUntil = Date.now() + 45;
+
     // pulse
     this.pulse = 0.6 + tier * 0.06;
 
     // haptic
     tap();
     if (tier >= 4) gulp();
+
+    // SFX
+    sfxGulp(tier, this.combo);
 
     // burst particles
     if (!this.reducedMotion()) {
@@ -422,6 +444,7 @@ export class NomHoleGame {
     if (this.phase === 'over') return;
     this.phase = 'over';
     roundEnd();
+    sfxRoundEnd();
     this.emitHud();
   }
 
@@ -452,16 +475,18 @@ export class NomHoleGame {
     });
   }
 
-  /** screen→world coordinate conversion */
+  /** screen→world coordinate conversion (accounts for zoom) */
   toWorld(sx: number, sy: number): { x: number; y: number } {
     const cam = this.camera();
-    return { x: sx + cam.x, y: sy + cam.y };
+    return { x: sx / this.zoom + cam.x, y: sy / this.zoom + cam.y };
   }
 
   private camera(): { x: number; y: number } {
+    const vw = this.viewW / this.zoom;
+    const vh = this.viewH / this.zoom;
     return {
-      x: Math.max(0, Math.min(WORLD - this.viewW, this.holeX - this.viewW / 2)),
-      y: Math.max(0, Math.min(WORLD - this.viewH, this.holeY - this.viewH / 2)),
+      x: Math.max(0, Math.min(WORLD - vw, this.holeX - vw / 2)),
+      y: Math.max(0, Math.min(WORLD - vh, this.holeY - vh / 2)),
     };
   }
 
@@ -469,24 +494,29 @@ export class NomHoleGame {
 
   private render(t: number): void {
     const { ctx, dpr } = this;
+    const zoom = this.zoom;
     const cam = this.camera();
     const isDark = document.documentElement.dataset.theme !== 'light';
+
+    // viewport dimensions in world-space
+    const vw = this.viewW / zoom;
+    const vh = this.viewH / zoom;
 
     const bgColor = isDark ? '#0d0720' : '#e8e4f0';
     const streetColor = isDark ? 'rgba(80,60,140,0.18)' : 'rgba(160,150,200,0.3)';
     const streetLineColor = isDark ? 'rgba(140,110,200,0.12)' : 'rgba(100,80,160,0.18)';
     const gridColor = isDark ? 'rgba(100,80,180,0.08)' : 'rgba(80,60,140,0.08)';
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
 
     // background
     ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, this.viewW, this.viewH);
+    ctx.fillRect(0, 0, vw, vh);
 
     // pulse overlay
     if (this.pulse > 0) {
       ctx.fillStyle = `rgba(160,100,255,${this.pulse * 0.18})`;
-      ctx.fillRect(0, 0, this.viewW, this.viewH);
+      ctx.fillRect(0, 0, vw, vh);
     }
 
     ctx.save();
@@ -500,27 +530,27 @@ export class NomHoleGame {
 
     // street fill
     ctx.fillStyle = streetColor;
-    for (let x = gx0; x < cam.x + this.viewW + BLOCK; x += BLOCK) {
-      ctx.fillRect(x, cam.y, STREET, this.viewH);
+    for (let x = gx0; x < cam.x + vw + BLOCK; x += BLOCK) {
+      ctx.fillRect(x, cam.y, STREET, vh);
     }
-    for (let y = gy0; y < cam.y + this.viewH + BLOCK; y += BLOCK) {
-      ctx.fillRect(cam.x, y, this.viewW, STREET);
+    for (let y = gy0; y < cam.y + vh + BLOCK; y += BLOCK) {
+      ctx.fillRect(cam.x, y, vw, STREET);
     }
 
     // street lines (dashes)
     ctx.strokeStyle = streetLineColor;
     ctx.lineWidth = 2;
     ctx.setLineDash([12, 14]);
-    for (let x = gx0; x < cam.x + this.viewW + BLOCK; x += BLOCK) {
+    for (let x = gx0; x < cam.x + vw + BLOCK; x += BLOCK) {
       ctx.beginPath();
       ctx.moveTo(x + STREET / 2, cam.y);
-      ctx.lineTo(x + STREET / 2, cam.y + this.viewH);
+      ctx.lineTo(x + STREET / 2, cam.y + vh);
       ctx.stroke();
     }
-    for (let y = gy0; y < cam.y + this.viewH + BLOCK; y += BLOCK) {
+    for (let y = gy0; y < cam.y + vh + BLOCK; y += BLOCK) {
       ctx.beginPath();
       ctx.moveTo(cam.x, y + STREET / 2);
-      ctx.lineTo(cam.x + this.viewW, y + STREET / 2);
+      ctx.lineTo(cam.x + vw, y + STREET / 2);
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -531,11 +561,11 @@ export class NomHoleGame {
     const grid = 55;
     const gx1 = Math.floor(cam.x / grid) * grid;
     const gy1 = Math.floor(cam.y / grid) * grid;
-    for (let x = gx1; x < cam.x + this.viewW + grid; x += grid) {
-      ctx.beginPath(); ctx.moveTo(x, cam.y); ctx.lineTo(x, cam.y + this.viewH); ctx.stroke();
+    for (let x = gx1; x < cam.x + vw + grid; x += grid) {
+      ctx.beginPath(); ctx.moveTo(x, cam.y); ctx.lineTo(x, cam.y + vh); ctx.stroke();
     }
-    for (let y = gy1; y < cam.y + this.viewH + grid; y += grid) {
-      ctx.beginPath(); ctx.moveTo(cam.x, y); ctx.lineTo(cam.x + this.viewW, y); ctx.stroke();
+    for (let y = gy1; y < cam.y + vh + grid; y += grid) {
+      ctx.beginPath(); ctx.moveTo(cam.x, y); ctx.lineTo(cam.x + vw, y); ctx.stroke();
     }
 
     // ——— city objects ———
@@ -843,6 +873,9 @@ export class NomHoleGame {
       ctx.stroke();
       ctx.restore();
     }
+
+    // suppress unused param warning
+    void t;
   }
 
   private roundRect(

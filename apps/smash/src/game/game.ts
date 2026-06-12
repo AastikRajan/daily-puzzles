@@ -5,6 +5,7 @@
  */
 import { tap, shatter, death as deathHaptic } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxShatter, sfxFireball, sfxDeath, sfxStart } from '../lib/sfx';
 
 // ——— constants ———
 const LANE_W = 320;         // visual lane width in px
@@ -28,7 +29,7 @@ export interface HudState {
   depth: number;
   towerDepth: number;
   towerNum: number;
-  phase: 'playing' | 'dead' | 'won';
+  phase: 'ready' | 'playing' | 'dead' | 'won';
   holding: boolean;
   fireballing: boolean;
   fireMeter: number; // 0..1
@@ -98,7 +99,7 @@ export class SmashGame {
   private towerNum = 1;
   private towerDepth = BASE_DEPTH;
   private depth = 0;           // plates smashed this tower
-  private phase: 'playing' | 'dead' | 'won' = 'playing';
+  private phase: 'ready' | 'playing' | 'dead' | 'won' = 'ready';
 
   // input
   private holding = false;
@@ -108,6 +109,9 @@ export class SmashGame {
   private fireCount = 0;       // plates smashed in current hold
   private fireballing = false;
   private fireDecayAt = 0;     // timestamp when fireball starts decaying
+
+  // hitstop
+  private hitstopUntil = 0;
 
   // shake
   private shake = 0;
@@ -151,6 +155,14 @@ export class SmashGame {
     canvas.style.height = `${h}px`;
   }
 
+  /** Transition ready → playing. Also serves as AudioContext unlock. */
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emitHud();
+  }
+
   setHolding(h: boolean): void {
     if (this.phase !== 'playing') return;
     const wasHolding = this.holding;
@@ -182,6 +194,7 @@ export class SmashGame {
     this.fireballing = false;
     this.fireCount = 0;
     this.shake = 0;
+    this.hitstopUntil = 0;
     this.debris = [];
     this.fireParticles = [];
     this.progHoldMs = 0;
@@ -253,6 +266,7 @@ export class SmashGame {
       phase: () => this.phase,
       restart: () => this.restart(),
       die: () => this.die(),
+      start: () => this.start(),
       hold: (ms: number) => {
         if (this.phase !== 'playing') return;
         this.progHoldMs = ms;
@@ -267,7 +281,8 @@ export class SmashGame {
   private loop = (t: number): void => {
     if (this.destroyed) return;
     const raw = t - this.lastT;
-    const dt = Math.min(raw, 100) / 1000; // seconds, capped
+    const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+    const dt = Math.min(raw, 100) / 1000 * scale; // seconds, capped
     this.lastT = t;
 
     if (document.visibilityState === 'visible') {
@@ -285,6 +300,13 @@ export class SmashGame {
         this.progHoldMs = 0;
         this.setHolding(false);
       }
+    }
+
+    if (this.phase === 'ready') {
+      // in ready phase: just idle-bounce the ball on plate 0
+      this.idleBounce(dt);
+      this.emitHud();
+      return;
     }
 
     if (this.phase !== 'playing') {
@@ -349,6 +371,32 @@ export class SmashGame {
     this.emitHud();
   }
 
+  /** Idle bounce on plate 0 for ready phase visuals */
+  private idleBounce(dt: number): void {
+    const p0 = this.plates[0];
+    if (!p0) return;
+
+    // Apply gravity
+    this.ballVY += GRAVITY * dt;
+    this.ballY += this.ballVY * dt;
+    this.squashT = Math.max(0, this.squashT - dt * 1000);
+
+    const plateTop = p0.y;
+    const ballBottom = this.ballY + BALL_R;
+    if (ballBottom >= plateTop && this.ballVY > 0) {
+      this.ballY = plateTop - BALL_R;
+      this.ballVY = BOUNCE_VEL;
+      this.squashT = SQUASH_DUR;
+      this.squashDir = 1;
+    }
+
+    // rotate plate 0 segments slowly
+    const rotSpeed = 0.3;
+    for (const seg of p0.segments) {
+      seg.offset = (seg.offset + rotSpeed * dt * 0.28) % 1;
+    }
+  }
+
   private checkPlateCollisions(now: number): void {
     for (let i = 0; i < this.plates.length; i++) {
       const plate = this.plates[i]!;
@@ -371,9 +419,15 @@ export class SmashGame {
           this.smashPlate(plate, now);
           this.depth = Math.max(this.depth, plate.level);
           this.fireCount++;
+
+          // sfx: shatter sound, pitch rises with streak
+          sfxShatter(this.fireCount);
+
           // fireball trigger: 4+ in one hold
           if (this.fireCount >= 4 && !this.fireballing) {
             this.fireballing = true;
+            this.hitstopUntil = Date.now() + 70;
+            sfxFireball();
           }
           // score: base 10 * depth multiplier
           const mult = 1 + Math.floor(plate.level / 5);
@@ -453,7 +507,9 @@ export class SmashGame {
   private die(): void {
     if (this.phase !== 'playing') return;
     this.phase = 'dead';
+    this.hitstopUntil = Date.now() + 70;
     deathHaptic();
+    sfxDeath();
     if (!this.reducedMotion()) this.shake = 1.4;
     this.emitHud();
   }
@@ -473,6 +529,7 @@ export class SmashGame {
     this.fireballing = false;
     this.fireCount = 0;
     this.shake = 0;
+    this.hitstopUntil = 0;
     this.debris = [];
     this.fireParticles = [];
     this.initTower();
@@ -613,12 +670,11 @@ export class SmashGame {
 
     for (let s = 0; s < SEGMENT_COUNT + 1; s++) {
       const seg = plate.segments[s % SEGMENT_COUNT]!;
-      const baseX = laneLeft - segW + s * segW;
       const ox = (seg.offset * LANE_W) % totalW;
-      const x = baseX + ox - segW;
-      // draw segment with wrapped copy
+      // wrap each segment into [laneLeft - segW, laneLeft + LANE_W) so the
+      // full lane is always covered — no unpainted strip at the left edge
+      const x = laneLeft - segW + ((s * segW + ox) % totalW);
       this.drawSegment(seg, x, screenY, segW);
-      this.drawSegment(seg, x + totalW, screenY, segW);
     }
 
     ctx.restore();

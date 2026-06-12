@@ -6,6 +6,7 @@
  */
 import { tap, pop, death } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxStart, sfxHopWhoosh, sfxSlingshotCharge, sfxStarCollect, sfxDeath } from '../lib/sfx';
 
 const W = 390;
 const H = 700;
@@ -20,11 +21,12 @@ const SLING_MS = 320;
 const CHARGE_MS = 300;
 
 interface Mover { ring: number; angle: number; speed: number }
+interface FloatText { x: number; y: number; text: string; life: number }
 
 export interface OrbitHud {
   score: number;
   best: number;
-  phase: 'playing' | 'dead';
+  phase: 'ready' | 'playing' | 'dead';
   charging: boolean;
 }
 
@@ -32,6 +34,7 @@ export class OrbitGame {
   private ctx: CanvasRenderingContext2D;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
   private viewW = W;
+  private viewH = H;
 
   private ring = 2;
   private angle = -Math.PI / 2;
@@ -43,15 +46,22 @@ export class OrbitGame {
   private stars: Mover[] = [];
   private debris: Mover[] = [];
   private particles: { x: number; y: number; vx: number; vy: number; r: number; color: string; life: number }[] = [];
+  private floats: FloatText[] = [];
   private score = 0;
   private best: number;
-  private phase: 'playing' | 'dead' = 'playing';
+  private phase: 'ready' | 'playing' | 'dead' = 'ready';
   private elapsed = 0;
   private rafId = 0;
   private lastT = 0;
   private destroyed = false;
   private onHud: (h: OrbitHud) => void;
   private reducedMotion: () => boolean;
+  private hitstopUntil = 0;
+  private shake = 0;
+  private comboCount = 0;
+  private sceneScale = 1;
+  private sceneOffsetX = 0;
+  private rampFactor = 1;
 
   constructor(canvas: HTMLCanvasElement, onHud: (h: OrbitHud) => void, reducedMotion: () => boolean) {
     this.ctx = canvas.getContext('2d')!;
@@ -68,7 +78,12 @@ export class OrbitGame {
   }
 
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const s = h / H;
+    this.sceneScale = s;
+    this.sceneOffsetX = (w - W * s) / 2;
     this.viewW = w;
+    this.viewH = h;
     canvas.width = w * this.dpr;
     canvas.height = h * this.dpr;
     canvas.style.width = `${w}px`;
@@ -81,6 +96,13 @@ export class OrbitGame {
     delete (window as unknown as Record<string, unknown>)['__orbit'];
   }
 
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emit();
+  }
+
   restart(): void {
     this.ring = 2;
     this.angle = -Math.PI / 2;
@@ -91,7 +113,10 @@ export class OrbitGame {
     this.holdStart = null;
     this.score = 0;
     this.elapsed = 0;
+    this.comboCount = 0;
+    this.floats = [];
     this.phase = 'playing';
+    sfxStart();
     this.seedField();
     this.emit();
   }
@@ -120,8 +145,11 @@ export class OrbitGame {
     }
     if (to === this.ring) return;
     this.hop = { from: this.ring, to, t0: Date.now(), dur: distance === 2 ? SLING_MS : HOP_MS };
-    if (this.ring + this.dir * distance >= RINGS.length - 1 || this.ring + this.dir * distance <= 0) {
-      // next hop will bounce — flip handled above on demand
+    if (distance === 2) {
+      sfxHopWhoosh();
+      sfxSlingshotCharge();
+    } else {
+      sfxHopWhoosh();
     }
     tap();
   }
@@ -146,7 +174,7 @@ export class OrbitGame {
     this.debris.push({
       ring: Math.floor(Math.random() * RINGS.length),
       angle: Math.random() * Math.PI * 2,
-      speed: dirSign * (0.5 + Math.random() * 0.7),
+      speed: dirSign * (0.5 + Math.random() * 0.7) * this.rampFactor,
     });
   }
 
@@ -160,6 +188,7 @@ export class OrbitGame {
       },
       die: () => this.die(),
       restart: () => this.restart(),
+      start: () => this.start(),
       placeStarOnPath: () => {
         this.stars.push({ ring: this.ring, angle: this.angle + 0.25, speed: 0 });
       },
@@ -173,20 +202,30 @@ export class OrbitGame {
   private loop = (t: number): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'visible') {
-      const dt = Math.min((t - this.lastT) / 1000, 0.05);
-      if (this.phase === 'playing') this.step(dt);
-      this.render(t);
+      const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+      const raw = Math.min(t - this.lastT, 100);
+      const dt = raw * scale / 1000;
+      if (this.phase === 'playing') this.step(dt, raw);
+      this.render(t, raw);
     }
     this.lastT = t;
     this.rafId = requestAnimationFrame(this.loop);
   };
 
-  private step(dt: number): void {
+  private step(dt: number, raw: number): void {
     const now = Date.now();
     this.elapsed += dt;
-    // difficulty ramp
-    this.angSpeed = 1.1 + Math.min(1.1, this.elapsed * 0.018);
-    if (this.debris.length < 5 + Math.floor(this.elapsed / 12) && Math.random() < dt * 0.4) {
+
+    // difficulty ramp: slow start for first 10s, ramp to full over 20s
+    const rampFactor = this.elapsed < 10
+      ? 0.6
+      : this.elapsed < 20
+        ? 0.6 + 0.4 * (this.elapsed - 10) / 10
+        : 1.0;
+    this.rampFactor = rampFactor;
+    this.angSpeed = (1.1 + Math.min(1.1, this.elapsed * 0.018)) * rampFactor;
+
+    if (this.debris.length < 5 + Math.floor(this.elapsed / 12) && Math.random() < dt * 0.4 * rampFactor) {
       this.spawnDebris();
     }
 
@@ -203,6 +242,13 @@ export class OrbitGame {
       this.burst(...this.playerXY(), '#7df0ff', 6);
     }
 
+    // update float texts
+    for (const f of this.floats) {
+      f.y -= 0.8;
+      f.life -= raw / 1000;
+    }
+    this.floats = this.floats.filter((f) => f.life > 0);
+
     // collisions (only when not mid-hop — you're untouchable in flight)
     if (!this.hop) {
       const [px, py] = this.playerXY();
@@ -212,12 +258,16 @@ export class OrbitGame {
         if (Math.hypot(sx - px, sy - py) < PLAYER_R + STAR_R) {
           this.stars.splice(i, 1);
           this.score += 10;
+          this.comboCount++;
           if (this.score > this.best) {
             this.best = this.score;
             save('best', this.best);
           }
           this.burst(sx, sy, '#ffe066', 10);
+          sfxStarCollect(this.comboCount);
           pop();
+          // float text
+          this.floats.push({ x: sx, y: sy, text: '+10', life: 0.8 });
           this.spawnStar();
           this.emit();
         }
@@ -235,8 +285,11 @@ export class OrbitGame {
   private die(): void {
     if (this.phase === 'dead') return;
     this.phase = 'dead';
+    this.hitstopUntil = Date.now() + 70;
+    this.shake = 1.4;
     const [px, py] = this.playerXY();
     this.burst(px, py, '#ff6e8a', 22);
+    sfxDeath();
     death();
     this.emit();
   }
@@ -264,10 +317,38 @@ export class OrbitGame {
     }
   }
 
-  private render(t: number): void {
+  private render(t: number, raw: number): void {
     const { ctx, dpr } = this;
-    const s = this.viewW / W;
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+    const { viewW, viewH, sceneScale, sceneOffsetX } = this;
+
+    // decay screenshake
+    this.shake = Math.max(0, this.shake - raw / 1000 * 14);
+    const shx = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
+    const shy = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
+
+    // full canvas background — space gradient (fills gutters too)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const gutterGrad = ctx.createLinearGradient(0, 0, viewW, viewH);
+    gutterGrad.addColorStop(0, '#050510');
+    gutterGrad.addColorStop(1, '#0a0520');
+    ctx.fillStyle = gutterGrad;
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    // scatter stars in gutters
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (let i = 0; i < 35; i++) {
+      const sx = (i * 137.5) % viewW;
+      const sy = (i * 97.3) % viewH;
+      ctx.fillRect(sx, sy, 1.2, 1.2);
+    }
+
+    // scene transform: scale to fit height + center + screenshake
+    ctx.setTransform(
+      dpr * sceneScale, 0, 0, dpr * sceneScale,
+      (sceneOffsetX + shx) * dpr,
+      shy * dpr,
+    );
+
     ctx.fillStyle = '#0a0a1f';
     ctx.fillRect(0, 0, W, H);
 
@@ -347,31 +428,33 @@ export class OrbitGame {
     }
 
     // player comet
-    if (this.phase === 'playing') {
+    if (this.phase === 'playing' || this.phase === 'dead') {
       const [px, py] = this.playerXY();
-      // trail
-      for (let i = 1; i <= 5; i++) {
-        const ta = this.angle - i * 0.07;
-        const r = this.hop ? Math.hypot(px - CX, py - CY) : RINGS[this.ring]!;
-        const tx = CX + Math.cos(ta) * r;
-        const ty = CY + Math.sin(ta) * r;
-        ctx.globalAlpha = 0.3 * (1 - i / 6);
-        ctx.fillStyle = '#7df0ff';
+      if (this.phase === 'playing') {
+        // trail
+        for (let i = 1; i <= 5; i++) {
+          const ta = this.angle - i * 0.07;
+          const r = this.hop ? Math.hypot(px - CX, py - CY) : RINGS[this.ring]!;
+          const tx = CX + Math.cos(ta) * r;
+          const ty = CY + Math.sin(ta) * r;
+          ctx.globalAlpha = 0.3 * (1 - i / 6);
+          ctx.fillStyle = '#7df0ff';
+          ctx.beginPath();
+          ctx.arc(tx, ty, PLAYER_R * (1 - i / 7), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        const pg = ctx.createRadialGradient(px - 3, py - 3, 1, px, py, PLAYER_R + (this.charging ? 4 : 0));
+        pg.addColorStop(0, '#ffffff');
+        pg.addColorStop(1, this.charging ? '#ffd84d' : '#7df0ff');
+        ctx.fillStyle = pg;
+        ctx.shadowColor = this.charging ? '#ffd84d' : '#7df0ff';
+        ctx.shadowBlur = this.charging ? 22 : 14;
         ctx.beginPath();
-        ctx.arc(tx, ty, PLAYER_R * (1 - i / 7), 0, Math.PI * 2);
+        ctx.arc(px, py, PLAYER_R + (this.charging ? 2.5 : 0), 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
       }
-      ctx.globalAlpha = 1;
-      const pg = ctx.createRadialGradient(px - 3, py - 3, 1, px, py, PLAYER_R + (this.charging ? 4 : 0));
-      pg.addColorStop(0, '#ffffff');
-      pg.addColorStop(1, this.charging ? '#ffd84d' : '#7df0ff');
-      ctx.fillStyle = pg;
-      ctx.shadowColor = this.charging ? '#ffd84d' : '#7df0ff';
-      ctx.shadowBlur = this.charging ? 22 : 14;
-      ctx.beginPath();
-      ctx.arc(px, py, PLAYER_R + (this.charging ? 2.5 : 0), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
     }
 
     // particles
@@ -386,6 +469,17 @@ export class OrbitGame {
       p.life -= 0.03;
     }
     this.particles = this.particles.filter((p) => p.life > 0);
+
+    // float texts
+    ctx.globalAlpha = 1;
+    for (const f of this.floats) {
+      ctx.globalAlpha = Math.min(1, f.life * 2);
+      ctx.fillStyle = '#ffe066';
+      ctx.font = 'bold 14px var(--font-display, sans-serif)';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.text, f.x, f.y);
+    }
+
     ctx.globalAlpha = 1;
   }
 }

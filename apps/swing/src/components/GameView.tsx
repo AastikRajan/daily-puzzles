@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { SwingGame, SWING_SCENE, type SwingHud } from '../game/game';
+import { SwingGame, type SwingHud } from '../game/game';
 import { useSettings } from '../state/settings';
+import { sfxClick, isMuted, setMuted } from '../lib/sfx';
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SwingGame | null>(null);
-  const [hud, setHud] = useState<SwingHud>({ distance: 0, best: 0, stars: 0, phase: 'playing', attached: false });
+  const [hud, setHud] = useState<SwingHud>({ distance: 0, best: 0, stars: 0, phase: 'ready', attached: false });
+  const [muted, setMutedState] = useState(() => isMuted());
   const prevBest = useRef(-1);
-  const theme = useSettings((s) => s.theme);
-  const setSettings = useSettings((s) => s.set);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
     const game = new SwingGame(canvas, (h) => setHud(h), () => useSettings.getState().reducedMotion);
     gameRef.current = game;
     const fit = () => {
-      const w = Math.min(window.innerWidth, 560);
-      game.resize(w, Math.min(window.innerHeight, w * (SWING_SCENE.H / SWING_SCENE.W)), canvas);
+      game.resize(window.innerWidth, window.innerHeight, canvas);
     };
     fit();
     window.addEventListener('resize', fit);
@@ -36,11 +35,18 @@ export default function GameView() {
     }
   }, [hud.phase, hud.distance, hud.best]);
 
+  function handleMuteToggle() {
+    sfxClick();
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  }
+
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
@@ -50,21 +56,46 @@ export default function GameView() {
         onPointerCancel={() => gameRef.current?.release()}
       />
 
-      <div className="hud">
-        <span className="chip">📏 <strong data-testid="hud-distance">{hud.distance}m</strong></span>
-        <span className="chip">Best <strong>{hud.best}m</strong></span>
-        <span className="chip">⭐ <strong>{hud.stars}</strong></span>
-        {hud.attached && <span className="chip combo">HOLD</span>}
-      </div>
+      {hud.phase === 'playing' && (
+        <>
+          <div className="hud">
+            <span className="chip">📏 <strong data-testid="hud-distance">{hud.distance}m</strong></span>
+            <span className="chip">Best <strong>{hud.best}m</strong></span>
+            <span className="chip">⭐ <strong>{hud.stars}</strong></span>
+            {hud.attached && <span className="chip combo">HOLD</span>}
+          </div>
+          <p className="hint-text">Hold to latch the rope · release at the top of the swing to fly</p>
+        </>
+      )}
+
       <button
-        className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
+        className="chip mute-btn"
+        onClick={handleMuteToggle}
+        aria-label="Mute"
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">Hold to latch the rope · release at the top of the swing to fly</p>
+      {hud.phase === 'ready' && (
+        <div className="overlay start-overlay" data-testid="start-overlay">
+          <div className="card start-card">
+            <h1 className="start-title">Swing King</h1>
+            <p className="start-sub">swing far, fly farther</p>
+            <div className="howto-row">
+              <span className="chip">🖐 hold = rope</span>
+              <span className="chip">release at the top</span>
+              <span className="chip">⭐ = bonus</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={() => gameRef.current?.start()}
+            >
+              Play
+            </button>
+          </div>
+        </div>
+      )}
 
       {hud.phase === 'dead' && (
         <div className="overlay" role="dialog" data-testid="game-over-overlay">

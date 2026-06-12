@@ -4,25 +4,25 @@ import '@fontsource-variable/nunito';
 import './styles/global.css';
 import { GameEngine, type GameState } from './game/engine';
 import { useSettings, applyTheme } from './state/settings';
-import { load } from './lib/storage';
-import GameCanvas from './components/GameCanvas';
-import HUD from './components/HUD';
+import { load, save } from './lib/storage';
+import { isMuted, setMuted, sfxClick, resumeCtx } from './lib/sfx';
 import GameOverlay from './components/GameOverlay';
-import SettingsDrawer from './components/SettingsDrawer';
-
-const INIT_STATE: GameState = {
-  score: 0,
-  best: load<number>('best', 0),
-  phase: 'playing',
-  currentTier: 1,
-  nextTier: 2,
-};
 
 export default function App() {
   const engineRef = useRef<GameEngine | null>(null);
-  const [gameState, setGameState] = useState<GameState>(INIT_STATE);
-  const [showSettings, setShowSettings] = useState(false);
-  const { theme, reducedMotion, sound } = useSettings();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+
+  const [gameState, setGameState] = useState<GameState>(() => ({
+    score: 0,
+    best: load<number>('best', 0),
+    phase: 'ready',
+    currentTier: 1,
+    nextTier: 2,
+  }));
+  const [muteFlag, setMuteFlag] = useState<boolean>(() => isMuted());
+
+  const { theme, reducedMotion } = useSettings();
 
   // Apply theme on mount + changes
   useEffect(() => {
@@ -37,40 +37,132 @@ export default function App() {
     return () => mq.removeEventListener('change', handler);
   }, [theme, reducedMotion]);
 
-  const handleRestart = useCallback(() => {
-    engineRef.current?.restart();
-    setGameState(s => ({ ...s, score: 0, phase: 'playing' }));
+  // Create engine once canvas is mounted
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const scene = sceneRef.current;
+    if (!canvas || !scene) return;
+
+    const best = load<number>('best', 0);
+    const engine = new GameEngine(canvas, best);
+    engineRef.current = engine;
+
+    engine.setOnStateChange((s) => {
+      if (s.score > load<number>('best', 0)) save('best', s.score);
+      setGameState(s);
+    });
+
+    const ro = new ResizeObserver(() => {
+      if (!canvas.parentElement) return;
+      engine.resize(canvas.parentElement.clientWidth, canvas.parentElement.clientHeight);
+    });
+    ro.observe(scene);
+    engine.resize(scene.clientWidth, scene.clientHeight);
+
+    return () => {
+      engine.destroy();
+      ro.disconnect();
+      engineRef.current = null;
+    };
   }, []);
 
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column',
-      width: '100%', height: '100dvh', maxWidth: 500,
-      position: 'relative',
-    }}>
-      <HUD state={gameState} onSettings={() => setShowSettings(true)} />
+  const handleStart = useCallback(() => {
+    resumeCtx();
+    sfxClick();
+    engineRef.current?.start();
+  }, []);
 
-      {/* Game container — fills remaining space */}
-      <div style={{
-        flex: 1,
-        position: 'relative',
-        margin: '0 12px 12px',
-        borderRadius: 20,
-        overflow: 'hidden',
-        background: 'linear-gradient(180deg, rgba(255,240,250,0.6) 0%, rgba(255,248,240,0.6) 100%)',
-        boxShadow: '0 4px 24px rgba(220,80,140,0.15), inset 0 0 0 1.5px rgba(255,255,255,0.4)',
-      }}>
-        <GameCanvas
-          onStateChange={setGameState}
-          soundEnabled={sound}
-          engineRef={engineRef}
+  const handleRestart = useCallback(() => {
+    engineRef.current?.restart();
+  }, []);
+
+  const handleMuteToggle = useCallback(() => {
+    sfxClick();
+    const next = !isMuted();
+    setMuted(next);
+    setMuteFlag(next);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gameState.phase !== 'playing') return;
+    const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect();
+    engineRef.current?.setAimX(e.clientX - rect.left);
+  }, [gameState.phase]);
+
+  const onPointerLeave = useCallback(() => {
+    engineRef.current?.clearAim();
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gameState.phase !== 'playing') return;
+    const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect();
+    engineRef.current?.drop(e.clientX - rect.left);
+  }, [gameState.phase]);
+
+  return (
+    <div className="game-root">
+      {/* Gutters — painted with candy gradient on wide screens */}
+      <div className="gutter left" />
+      <div className="gutter right" />
+
+      {/* Portrait game scene */}
+      <div className="game-scene" ref={sceneRef}>
+        {/* Canvas fills scene */}
+        <canvas
+          ref={canvasRef}
+          style={{ display: 'block', position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none' }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerLeave}
         />
+
+        {/* HUD — score + best chips, top-center */}
+        {gameState.phase !== 'ready' && (
+          <div className="hud">
+            <div className="chip">Score <strong data-testid="score-value">{gameState.score}</strong></div>
+            <div className="chip">Best <strong>{gameState.best}</strong></div>
+          </div>
+        )}
+
+        {/* Mute toggle — top-right */}
+        <button
+          className="chip theme-btn"
+          data-testid="mute-toggle"
+          aria-label={muteFlag ? 'Unmute' : 'Mute'}
+          onClick={handleMuteToggle}
+        >
+          {muteFlag ? '🔇' : '🔊'}
+        </button>
+
+        {/* Hint text — bottom, hidden on ready */}
+        {gameState.phase === 'playing' && (
+          <p className="hint-text">move to aim · release to drop</p>
+        )}
+
+        {/* Start overlay — shown when phase === 'ready' */}
+        {gameState.phase === 'ready' && (
+          <div className="start-overlay">
+            <h1 className="start-title">Merge Drop</h1>
+            <p className="start-sub">drop, merge, don&rsquo;t overflow</p>
+            <div className="howto-row">
+              <span>👆 aim · release = drop</span>
+              <span>same = merge!</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={handleStart}
+            >
+              PLAY
+            </button>
+          </div>
+        )}
+
+        {/* Game-over overlay */}
         {gameState.phase === 'over' && (
           <GameOverlay state={gameState} onRestart={handleRestart} />
         )}
       </div>
-
-      {showSettings && <SettingsDrawer onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

@@ -2,17 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { NomHoleGame, type HudState } from '../game/game';
 import { useSettings } from '../state/settings';
+import { isMuted, setMuted, sfxClick } from '../lib/sfx';
+
+const ROUND_SEC = 75;
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<NomHoleGame | null>(null);
   const [hud, setHud] = useState<HudState>({
-    score: 0, best: 0, timeLeft: 75, combo: 0,
-    phase: 'playing', eaten: 0, total: 80,
+    score: 0, best: 0, timeLeft: ROUND_SEC, combo: 0,
+    phase: 'ready', eaten: 0, total: 80,
   });
+  const [muted, setMutedState] = useState(isMuted());
   const prevBest = useRef(0);
-  const setSettings = useSettings((s) => s.set);
-  const theme = useSettings((s) => s.theme);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -24,9 +26,7 @@ export default function GameView() {
     gameRef.current = game;
 
     const fit = () => {
-      const w = Math.min(window.innerWidth, 560);
-      const h = window.innerHeight;
-      game.resize(w, h, canvas);
+      game.resize(window.innerWidth, window.innerHeight, canvas);
     };
     fit();
     window.addEventListener('resize', fit);
@@ -36,7 +36,7 @@ export default function GameView() {
     };
   }, []);
 
-  // confetti on new best
+  // confetti on new best (only when over, and only when score is a new best)
   useEffect(() => {
     if (hud.phase === 'over') {
       if (hud.score > 0 && hud.score >= hud.best && hud.best !== prevBest.current) {
@@ -65,11 +65,16 @@ export default function GameView() {
       ? 'chip timer-chip warn'
       : 'chip timer-chip';
 
+  const handleStart = () => {
+    gameRef.current?.start();
+    sfxClick();
+  };
+
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
@@ -82,33 +87,61 @@ export default function GameView() {
         onPointerCancel={() => gameRef.current?.setPointer(null)}
       />
 
-      <div className="hud">
-        <span className="chip">Score <strong data-testid="hud-score">{hud.score}</strong></span>
-        <span className={timerClass}>
-          <strong data-testid="hud-timer">{hud.timeLeft}s</strong>
-        </span>
-        <span className="chip">Best <strong>{hud.best}</strong></span>
-        {hud.combo > 1 && (
-          <span className="chip combo" data-testid="hud-combo">×{hud.combo}</span>
-        )}
-      </div>
+      {hud.phase !== 'ready' && (
+        <>
+          <div className="hud">
+            <span className="chip">Score <strong data-testid="hud-score">{hud.score}</strong></span>
+            <span className={timerClass}>
+              <strong data-testid="hud-timer">{hud.timeLeft}s</strong>
+            </span>
+            <span className="chip">Best <strong>{hud.best}</strong></span>
+            {hud.combo > 1 && (
+              <span className="chip combo" data-testid="hud-combo">×{hud.combo}</span>
+            )}
+          </div>
+
+          <p className="hint-text">Drag to steer · eat smaller objects · grow your hole!</p>
+        </>
+      )}
 
       <button
         className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
-        data-testid="theme-toggle"
+        onClick={() => {
+          const next = !muted;
+          setMuted(next);
+          setMutedState(next);
+          sfxClick();
+        }}
+        data-testid="mute-toggle"
+        aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">Drag to steer · eat smaller objects · grow your hole!</p>
+      {hud.phase === 'ready' && (
+        <div className="start-overlay" data-testid="start-overlay">
+          <h1 className="start-title">Nom Hole</h1>
+          <p className="start-sub">swallow the whole city</p>
+          <div className="howto-row">
+            <span>👆 drag = move</span>
+            <span>eat smaller things</span>
+            <span>grow HUGE</span>
+          </div>
+          <button
+            className="btn3d start-btn"
+            data-testid="start-btn"
+            onClick={handleStart}
+          >
+            PLAY
+          </button>
+        </div>
+      )}
 
       {hud.phase === 'over' && (
         <div className="overlay" role="dialog" aria-label="Round over" data-testid="game-over-overlay">
           <div className="card">
             <h2>Nom!</h2>
-            <p className="sub">Time's up — you ate {pct}% of the city.</p>
+            <p className="sub">Time&apos;s up — you ate {pct}% of the city.</p>
             <div className="stats-row-pair">
               <div className="stat-box">
                 <span className="stat-cap">Score</span>

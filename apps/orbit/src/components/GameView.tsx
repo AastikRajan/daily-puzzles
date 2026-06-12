@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { OrbitGame, ORBIT_SCENE, type OrbitHud } from '../game/game';
+import { OrbitGame, type OrbitHud } from '../game/game';
 import { useSettings } from '../state/settings';
+import { sfxClick, isMuted, setMuted } from '../lib/sfx';
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<OrbitGame | null>(null);
-  const [hud, setHud] = useState<OrbitHud>({ score: 0, best: 0, phase: 'playing', charging: false });
+  const [hud, setHud] = useState<OrbitHud>({ score: 0, best: 0, phase: 'ready', charging: false });
+  const [muted, setMutedState] = useState(isMuted());
   const prevBest = useRef(0);
-  const theme = useSettings((s) => s.theme);
-  const setSettings = useSettings((s) => s.set);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
     const game = new OrbitGame(canvas, (h) => setHud(h), () => useSettings.getState().reducedMotion);
     gameRef.current = game;
     const fit = () => {
-      const w = Math.min(window.innerWidth, 560);
-      game.resize(w, Math.min(window.innerHeight, w * (ORBIT_SCENE.H / ORBIT_SCENE.W)), canvas);
+      game.resize(window.innerWidth, window.innerHeight, canvas);
     };
     fit();
     window.addEventListener('resize', fit);
@@ -36,11 +35,18 @@ export default function GameView() {
     }
   }, [hud.phase, hud.score, hud.best]);
 
+  const handleMute = () => {
+    sfxClick();
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  };
+
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
@@ -50,20 +56,44 @@ export default function GameView() {
         onPointerCancel={() => gameRef.current?.pointerUp()}
       />
 
-      <div className="hud">
-        <span className="chip">Score <strong data-testid="hud-score">{hud.score}</strong></span>
-        <span className="chip">Best <strong>{hud.best}</strong></span>
-        {hud.charging && <span className="chip combo">SLINGSHOT!</span>}
-      </div>
+      {hud.phase === 'playing' && (
+        <div className="hud">
+          <span className="chip">Score <strong data-testid="hud-score">{hud.score}</strong></span>
+          <span className="chip">Best <strong>{hud.best}</strong></span>
+          {hud.charging && <span className="chip combo">SLINGSHOT!</span>}
+        </div>
+      )}
+
       <button
-        className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
+        className="chip mute-btn"
+        onClick={handleMute}
+        aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">Tap to hop rings · hold then release to slingshot two rings · catch ⭐ dodge debris</p>
+      {hud.phase === 'playing' && (
+        <p className="hint-text">Tap to hop rings · hold then release to slingshot two rings · catch ⭐ dodge debris</p>
+      )}
+
+      {hud.phase === 'ready' && (
+        <div className="start-overlay" data-testid="start-overlay">
+          <h1 className="start-title">Orbit Hop</h1>
+          <p className="start-sub">hop rings, dodge debris</p>
+          <div className="howto-row">
+            <span>👆 tap = hop</span>
+            <span>✊ hold = slingshot</span>
+            <span>⭐ = points</span>
+          </div>
+          <button
+            className="btn3d start-btn"
+            data-testid="start-btn"
+            onClick={() => gameRef.current?.start()}
+          >
+            Play
+          </button>
+        </div>
+      )}
 
       {hud.phase === 'dead' && (
         <div className="overlay" role="dialog" data-testid="game-over-overlay">

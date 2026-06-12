@@ -1,5 +1,5 @@
-/* ————— Snake Pop design system: NEON ARCADE —————
-   Dark-first: deep void background, neon segment colors,
+/* ————— Swing King design system: ARCADE POP —————
+   Dark-first: deep dusk sky, pink/gold accents,
    glassy raised panels, Duolingo-style 3D buttons. */
 
 :root {
@@ -20,25 +20,13 @@
     0 14px 36px rgba(0, 0, 0, 0.55);
   --edge-shadow: rgba(0, 0, 0, 0.6);
 
-  /* snake segment colors — 5 vivid neons */
-  --c0: #00f5a0;  /* neon mint */
-  --c0-deep: #00c47e;
-  --c1: #ff4ecd;  /* hot pink */
-  --c1-deep: #cc30a0;
-  --c2: #4e9fff;  /* electric blue */
-  --c2-deep: #2878d4;
-  --c3: #ffe94e;  /* neon yellow */
-  --c3-deep: #cdb820;
-  --c4: #ff7b2e;  /* vivid orange */
-  --c4-deep: #cc5a12;
+  /* swing accent: pink/gold */
+  --accent: #ff9ec7;
+  --accent-deep: #d9568f;
+  --g-accent: linear-gradient(135deg, #ff9ec7, #ffe066);
 
-  /* accent for UI (green→pink gradient, brand mark) */
-  --accent: #00f5a0;
-  --accent-deep: #00c47e;
-  --g-accent: linear-gradient(135deg, #00f5a0, #ff4ecd);
-
-  --good: #00f5a0;
-  --bad: #ff4e4e;
+  --good: #ffe066;
+  --bad: #ff6e8a;
 
   --font-display: 'Baloo 2 Variable', 'Comic Sans MS', cursive;
   --font-ui: 'Nunito Variable', 'Segoe UI', sans-serif;
@@ -50,27 +38,6 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   color-scheme: dark;
-}
-
-[data-theme='light'] {
-  --bg-a: #eef2ff;
-  --bg-b: #fdeFF7;
-  --bg-c: #e7fbff;
-  --surface: rgba(255, 255, 255, 0.86);
-  --surface-solid: #ffffff;
-  --surface-edge: rgba(255, 255, 255, 0.65);
-  --ink: #232347;
-  --ink-soft: rgba(35, 35, 71, 0.64);
-  --ink-faint: rgba(35, 35, 71, 0.4);
-  --line: rgba(35, 35, 71, 0.1);
-  --line-strong: rgba(35, 35, 71, 0.45);
-  --card-shadow:
-    0 2px 6px rgba(60, 50, 120, 0.08),
-    0 12px 32px rgba(60, 50, 120, 0.14);
-  --edge-shadow: rgba(60, 50, 120, 0.22);
-  --accent: #1aaa72;
-  --accent-deep: #0e7d50;
-  color-scheme: light;
 }
 
 * {
@@ -174,10 +141,17 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 
 .game-canvas {
   display: block;
-  margin: 0 auto;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.game-canvas.fullbleed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100dvh !important;
 }
 
 .hud {
@@ -218,12 +192,13 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   to { transform: scale(1); }
 }
 
-.theme-btn {
+.mute-btn {
   position: fixed;
   top: calc(10px + env(safe-area-inset-top, 0px));
   right: 12px;
-  z-index: 5;
+  z-index: 10;
   cursor: pointer;
+  font-size: 16px;
 }
 
 .hint-text {
@@ -309,4 +284,79 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   font-size: 26px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* ——— start overlay ——— */
+.start-overlay {
+  background: rgba(5, 5, 18, 0.55);
+}
+
+.start-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.start-title {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #ff9ec7, #ffe066);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.start-sub {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+.howto-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 4px 0 6px;
+}
+
+.start-btn {
+  --btn: #ff9ec7;
+  --btn-deep: #d9568f;
+  font-size: 19px;
+  padding: 15px 48px;
+  box-shadow:
+    0 5px 0 var(--btn-deep),
+    0 10px 18px rgba(0, 0, 0, 0.3),
+    0 0 32px rgba(255, 158, 199, 0.4),
+    0 0 64px rgba(255, 158, 199, 0.2);
+  animation: start-glow 2s ease-in-out infinite;
+}
+
+.start-btn:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 var(--btn-deep), 0 2px 6px rgba(0,0,0,0.2);
+}
+
+@keyframes start-glow {
+  0%, 100% {
+    box-shadow:
+      0 5px 0 #d9568f,
+      0 10px 18px rgba(0, 0, 0, 0.3),
+      0 0 32px rgba(255, 158, 199, 0.4),
+      0 0 64px rgba(255, 158, 199, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 5px 0 #d9568f,
+      0 10px 18px rgba(0, 0, 0, 0.3),
+      0 0 48px rgba(255, 158, 199, 0.75),
+      0 0 96px rgba(255, 158, 199, 0.35);
+  }
 }

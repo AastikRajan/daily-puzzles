@@ -4,6 +4,7 @@
  */
 import { tap, pop, death } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxLatch, sfxSwingLoop, sfxStarChirp, sfxSplash, sfxStart } from '../lib/sfx';
 
 const W = 390;
 const H = 700;
@@ -19,7 +20,7 @@ export interface SwingHud {
   distance: number;
   best: number;
   stars: number;
-  phase: 'playing' | 'dead';
+  phase: 'ready' | 'playing' | 'dead';
   attached: boolean;
 }
 
@@ -40,7 +41,10 @@ export class SwingGame {
   private genX = 0;
   private starCount = 0;
   private best: number;
-  private phase: 'playing' | 'dead' = 'playing';
+  private phase: 'ready' | 'playing' | 'dead' = 'ready';
+  private hitstopUntil = 0;
+  private shake = 0;
+  private starCombo = 0;
   private trail: { x: number; y: number }[] = [];
   private particles: { x: number; y: number; vx: number; vy: number; r: number; color: string; life: number }[] = [];
   private rafId = 0;
@@ -64,6 +68,7 @@ export class SwingGame {
   }
 
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.viewW = w;
     this.viewH = h;
     canvas.width = w * this.dpr;
@@ -78,6 +83,13 @@ export class SwingGame {
     delete (window as unknown as Record<string, unknown>)['__swing'];
   }
 
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emit();
+  }
+
   restart(): void {
     this.px = 80;
     this.py = 240;
@@ -89,9 +101,11 @@ export class SwingGame {
     this.stars = [];
     this.genX = 0;
     this.starCount = 0;
+    this.starCombo = 0;
     this.trail = [];
     this.phase = 'playing';
     this.generateAhead();
+    sfxStart();
     this.emit();
   }
 
@@ -127,6 +141,7 @@ export class SwingGame {
     }
     if (best) {
       this.rope = { hook: best, len: Math.hypot(best.x - this.px, best.y - this.py) };
+      sfxLatch();
       tap();
       this.emit();
     }
@@ -158,6 +173,7 @@ export class SwingGame {
       release: () => this.release(),
       attached: () => this.rope !== null,
       restart: () => this.restart(),
+      start: () => this.start(),
     };
   }
 
@@ -174,15 +190,20 @@ export class SwingGame {
   private loop = (t: number): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'visible') {
-      const dt = Math.min((t - this.lastT) / 1000, 0.04);
-      if (this.phase === 'playing') this.step(dt);
+      const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+      const rawMs = Math.min(t - this.lastT, 100);
+      const dt = rawMs * scale / 1000;
+      const speed = Math.hypot(this.vx, this.vy);
+      if (this.phase === 'playing') this.step(dt, speed);
       this.render(t);
+      // decay shake
+      this.shake = Math.max(0, this.shake - rawMs / 1000 * 14);
     }
     this.lastT = t;
     this.rafId = requestAnimationFrame(this.loop);
   };
 
-  private step(dt: number): void {
+  private step(dt: number, speed: number = 0): void {
     this.vy += GRAVITY * dt;
     this.px += this.vx * dt;
     this.py += this.vy * dt;
@@ -206,6 +227,8 @@ export class SwingGame {
         // gentle pump so swings keep momentum forward
         this.vx += 26 * dt * (this.vx >= 0 ? 1 : -1);
       }
+      // subtle whoosh while swinging
+      sfxSwingLoop(speed);
     } else if (this.wantAttach) {
       this.tryAttach();
     }
@@ -221,6 +244,8 @@ export class SwingGame {
       if (!s.got && Math.hypot(s.x - this.px, s.y - this.py) < 26) {
         s.got = true;
         this.starCount++;
+        this.starCombo++;
+        sfxStarChirp(this.starCombo);
         this.burst(s.x, s.y, '#ffe066', 8);
         pop();
         this.emit();
@@ -236,6 +261,9 @@ export class SwingGame {
     // death: the glow floor
     if (this.py > FLOOR_Y) {
       this.phase = 'dead';
+      this.hitstopUntil = Date.now() + 60;
+      this.shake = 1.4;
+      sfxSplash();
       this.burst(this.px, FLOOR_Y, '#ff6e8a', 24);
       const dist = Math.floor(this.px / PX_PER_M);
       if (dist > this.best) {
@@ -260,8 +288,10 @@ export class SwingGame {
 
   private render(t: number): void {
     const { ctx, dpr } = this;
-    const s = this.viewW / W;
-    const camX = this.px - W * 0.38;
+    const s = this.viewH / H;
+    const shx = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
+    const shy = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
+    const camX = this.px - this.viewW / s * 0.38;
     ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
 
     // dusk sky gradient
@@ -270,13 +300,14 @@ export class SwingGame {
     sky.addColorStop(0.6, '#2c1650');
     sky.addColorStop(1, '#4a1c52');
     ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, Math.max(H, this.viewH / s));
+    ctx.fillRect(0, 0, this.viewW / s, Math.max(H, this.viewH / s));
 
     // parallax canyon silhouettes
+    const sceneW = this.viewW / s;
     for (const [speed, color, base] of [[0.25, '#241345', 540], [0.5, '#1b0d33', 600]] as const) {
       ctx.fillStyle = color;
       const off = (camX * speed) % 280;
-      for (let x = -off - 280; x < W + 280; x += 280) {
+      for (let x = -off - 280; x < sceneW + camX + 280; x += 280) {
         ctx.beginPath();
         ctx.moveTo(x, H);
         ctx.lineTo(x + 60, base);
@@ -289,11 +320,11 @@ export class SwingGame {
     }
 
     ctx.save();
-    ctx.translate(-camX, 0);
+    ctx.translate(-camX + shx, shy);
 
     // hooks
     for (const h of this.hooks) {
-      if (h.x < camX - 40 || h.x > camX + W + 40) continue;
+      if (h.x < camX - 40 || h.x > camX + sceneW + 40) continue;
       ctx.fillStyle = '#ffe066';
       ctx.shadowColor = '#ffe066';
       ctx.shadowBlur = 10;
@@ -310,7 +341,7 @@ export class SwingGame {
 
     // stars
     for (const st of this.stars) {
-      if (st.got || st.x < camX - 30 || st.x > camX + W + 30) continue;
+      if (st.got || st.x < camX - 30 || st.x > camX + sceneW + 30) continue;
       const tw = 0.75 + Math.sin(t / 220 + st.x) * 0.25;
       ctx.globalAlpha = tw;
       ctx.fillStyle = '#7df0ff';
@@ -371,14 +402,14 @@ export class SwingGame {
     fg.addColorStop(0, 'rgba(255, 110, 138, 0.85)');
     fg.addColorStop(1, 'rgba(255, 110, 138, 0.2)');
     ctx.fillStyle = fg;
-    ctx.fillRect(camX - 50, FLOOR_Y, W + 100, H - FLOOR_Y);
+    ctx.fillRect(camX - 50, FLOOR_Y, sceneW + 100, H - FLOOR_Y);
     ctx.strokeStyle = '#ff6e8a';
     ctx.shadowColor = '#ff6e8a';
     ctx.shadowBlur = 14;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(camX - 50, FLOOR_Y);
-    ctx.lineTo(camX + W + 50, FLOOR_Y);
+    ctx.lineTo(camX + sceneW + 50, FLOOR_Y);
     ctx.stroke();
     ctx.shadowBlur = 0;
 

@@ -3,8 +3,16 @@
  * Guide fireflies from the start to the home ring, through multiplier gates,
  * past predators that eat stragglers. Deliver enough to clear the level.
  */
-import { tap, pop, death } from '../lib/haptics';
+import { tap, pop } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import {
+  sfxGateTrigger,
+  sfxDelivery,
+  sfxGulp,
+  sfxFanfare,
+  sfxDeath,
+  sfxStart,
+} from '../lib/sfx';
 
 const W = 390;
 const H = 700;
@@ -21,7 +29,7 @@ export interface FlockHud {
   need: number;
   level: number;
   best: number;
-  phase: 'playing' | 'won' | 'lost';
+  phase: 'ready' | 'playing' | 'won' | 'lost';
 }
 
 export class FlockGame {
@@ -29,19 +37,23 @@ export class FlockGame {
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
   private viewW = W;
   private viewH = H;
+  private sceneScale = 1;
+  private sceneOffsetX = 0;
 
   private boids: Boid[] = [];
   private gates: Gate[] = [];
   private predators: Predator[] = [];
   private particles: Particle[] = [];
   private home = { x: W / 2, y: 80, r: 52 };
-  private start = { x: W / 2, y: H - 90 };
+  private startZone = { x: W / 2, y: H - 90 };
   private pointer: { x: number; y: number } | null = null;
   private level = 1;
   private delivered = 0;
+  private deliveryCount = 0;
   private need = 20;
   private best: number;
-  private phase: 'playing' | 'won' | 'lost' = 'playing';
+  private phase: 'ready' | 'playing' | 'won' | 'lost' = 'ready';
+  private predSpeedMult = 1.0;
   private rafId = 0;
   private lastT = 0;
   private destroyed = false;
@@ -54,14 +66,28 @@ export class FlockGame {
     this.reducedMotion = reducedMotion;
     this.best = load<number>('best-level', 1);
     this.setupLevel(1);
+    // After setupLevel sets phase to 'playing', override to 'ready' for initial state
+    this.phase = 'ready';
     this.setupDebug();
     this.rafId = requestAnimationFrame((t) => {
       this.lastT = t;
       this.loop(t);
     });
+    this.emit();
+  }
+
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emit();
   }
 
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const s = h / H;
+    this.sceneScale = s;
+    this.sceneOffsetX = (w - W * s) / 2;
     this.viewW = w;
     this.viewH = h;
     canvas.width = w * this.dpr;
@@ -93,14 +119,17 @@ export class FlockGame {
   private setupLevel(level: number): void {
     this.level = level;
     this.delivered = 0;
+    this.deliveryCount = 0;
     this.need = 16 + level * 6;
-    this.phase = 'playing';
+    // Keep 'ready' phase if this is being called during initial construction
+    this.phase = this.phase === 'ready' ? 'ready' : 'playing';
+    this.predSpeedMult = level === 1 ? 0.8 : 1.0;
     this.boids = [];
     const n = 22;
     for (let i = 0; i < n; i++) {
       this.boids.push({
-        x: this.start.x + (Math.random() - 0.5) * 60,
-        y: this.start.y + (Math.random() - 0.5) * 50,
+        x: this.startZone.x + (Math.random() - 0.5) * 60,
+        y: this.startZone.y + (Math.random() - 0.5) * 50,
         vx: 0,
         vy: 0,
         hue: 45 + Math.random() * 30,
@@ -120,12 +149,13 @@ export class FlockGame {
         used: false,
       });
     });
-    // predators scale with level
+    // predators scale with level; start farther from start zone on level 1
     this.predators = [];
+    const predYMin = level === 1 ? 300 : 220;
     for (let i = 0; i < Math.min(1 + Math.floor(level / 2), 4); i++) {
       this.predators.push({
         x: 60 + Math.random() * (W - 120),
-        y: 220 + Math.random() * 260,
+        y: predYMin + Math.random() * (H - predYMin - 200),
         r: 17,
         vx: 0,
         vy: 0,
@@ -156,6 +186,7 @@ export class FlockGame {
       kill: () => {
         this.boids = [];
       },
+      start: () => this.start(),
     };
   }
 
@@ -253,6 +284,7 @@ export class FlockGame {
       }
       if (inside >= Math.max(3, bs.length * 0.3)) {
         g.used = true;
+        sfxGateTrigger();
         if (g.kind === 'x2') {
           const add = Math.min(bs.length, MAX_FLOCK - bs.length);
           for (let i = 0; i < add; i++) {
@@ -294,7 +326,7 @@ export class FlockGame {
         p.vy += ((nearest.y - p.y) / d) * 60 * dt;
       }
       const sp = Math.hypot(p.vx, p.vy);
-      const cap = 62;
+      const cap = 62 * this.predSpeedMult;
       if (sp > cap) {
         p.vx = (p.vx / sp) * cap;
         p.vy = (p.vy / sp) * cap;
@@ -310,6 +342,7 @@ export class FlockGame {
         if (Math.hypot(b.x - p.x, b.y - p.y) < p.r + 3) {
           bs.splice(i, 1);
           p.gulpT = 0.35;
+          sfxGulp();
           this.burst(b.x, b.y, '#ff7a8a', 4);
           this.emit();
         }
@@ -322,6 +355,7 @@ export class FlockGame {
       if (Math.hypot(b.x - this.home.x, b.y - this.home.y) < this.home.r - 6) {
         bs.splice(i, 1);
         this.delivered++;
+        sfxDelivery(this.deliveryCount++);
         this.burst(b.x, b.y, '#ffe066', 4);
         this.emit();
       }
@@ -331,10 +365,11 @@ export class FlockGame {
     if (this.delivered >= this.need) {
       this.phase = 'won';
       pop();
+      sfxFanfare();
       this.emit();
     } else if (bs.length === 0 && this.delivered < this.need) {
       this.phase = 'lost';
-      death();
+      sfxDeath();
       this.emit();
     }
   }
@@ -350,12 +385,48 @@ export class FlockGame {
 
   private render(t: number): void {
     const { ctx, dpr } = this;
-    const s = this.viewW / W;
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
 
-    // night meadow background
+    // full canvas background = night meadow (gutters)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const gutterGrad = ctx.createLinearGradient(0, 0, 0, this.viewH);
+    gutterGrad.addColorStop(0, '#060c18');
+    gutterGrad.addColorStop(1, '#0d1a10');
+    ctx.fillStyle = gutterGrad;
+    ctx.fillRect(0, 0, this.viewW, this.viewH);
+
+    // Fireflies drifting in gutters
+    if (this.sceneOffsetX > 10) {
+      for (let i = 0; i < 12; i++) {
+        const gx = Math.sin(t / 2000 + i * 2.1) * (this.sceneOffsetX * 0.4) + this.sceneOffsetX * 0.5;
+        const gy = ((i * 97 + t * 0.02) % this.viewH);
+        const flicker = 0.4 + Math.sin(t / 300 + i) * 0.3;
+        ctx.globalAlpha = flicker;
+        const halo = ctx.createRadialGradient(gx, gy, 0, gx, gy, 7);
+        halo.addColorStop(0, 'rgba(180, 255, 120, 0.8)');
+        halo.addColorStop(1, 'rgba(180, 255, 120, 0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(gx, gy, 7, 0, Math.PI * 2);
+        ctx.fill();
+        // Mirror for right gutter
+        const gx2 = this.viewW - gx;
+        const halo2 = ctx.createRadialGradient(gx2, gy, 0, gx2, gy, 7);
+        halo2.addColorStop(0, 'rgba(180, 255, 120, 0.8)');
+        halo2.addColorStop(1, 'rgba(180, 255, 120, 0)');
+        ctx.fillStyle = halo2;
+        ctx.beginPath();
+        ctx.arc(gx2, gy, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Apply scene transform (scale to fit height, center horizontally)
+    ctx.setTransform(dpr * this.sceneScale, 0, 0, dpr * this.sceneScale, this.sceneOffsetX * dpr, 0);
+
+    // night meadow background (scene area)
     ctx.fillStyle = '#0b1020';
-    ctx.fillRect(0, 0, W, Math.max(H, this.viewH / s));
+    ctx.fillRect(0, 0, W, H);
     // faint stars
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     for (let i = 0; i < 40; i++) {

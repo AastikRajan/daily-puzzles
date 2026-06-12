@@ -3,9 +3,9 @@ import confetti from 'canvas-confetti';
 import { getTier, randomSpawnTier } from './orbs';
 import { Renderer, type Particle, type FloatText, type OrbVisual } from './renderer';
 import { tap, pop } from '../lib/haptics';
-import { playMerge, playLand } from '../lib/audio';
+import { sfxMerge, sfxDrop, sfxDeath, sfxStart, resumeCtx } from '../lib/sfx';
 
-export type GamePhase = 'playing' | 'over';
+export type GamePhase = 'ready' | 'playing' | 'over';
 
 export interface GameState {
   score: number;
@@ -56,7 +56,7 @@ export class GameEngine {
   // Game state
   private score = 0;
   private best = 0;
-  private phase: GamePhase = 'playing';
+  private phase: GamePhase = 'ready';
   private currentTier: number;
   private nextTier: number;
 
@@ -81,8 +81,8 @@ export class GameEngine {
   // Confetti tiers already celebrated
   private celebrated = new Set<number>();
 
-  // Sound flag (updated from outside)
-  private soundEnabled = false;
+  // Hitstop — deadline in real ms (Date.now)
+  private hitstopUntil = 0;
 
   // Animation loop
   private rafId = 0;
@@ -102,13 +102,24 @@ export class GameEngine {
 
     this.setupCollisionHandler();
     this.setupDebugAPI();
-    this.start();
+    this.startRenderLoop();
   }
 
   // ——— Public API ———
 
-  setSoundEnabled(v: boolean): void { this.soundEnabled = v; }
   setOnStateChange(cb: (s: GameState) => void): void { this.onStateChange = cb; }
+  /** @deprecated — sound is now controlled via sfx.ts mute flag */
+  setSoundEnabled(_v: boolean): void { /* no-op — use setMuted() from sfx.ts */ }
+
+  /** Transitions 'ready' → 'playing', starts physics, plays sfxStart. */
+  start(): void {
+    if (this.phase !== 'ready') return;
+    resumeCtx();
+    sfxStart();
+    this.phase = 'playing';
+    Matter.Runner.run(this.runner, this.engine);
+    this.emitState();
+  }
 
   getState(): GameState {
     return {
@@ -152,6 +163,7 @@ export class GameEngine {
     const spawnY = this.contTop + r + 4;
 
     this.spawnOrb(tier, clampedX, spawnY);
+    sfxDrop();
 
     this.currentTier = this.nextTier;
     this.nextTier = randomSpawnTier();
@@ -170,7 +182,7 @@ export class GameEngine {
       Matter.Runner.run(this.runner, this.engine);
     }
 
-    // Reset state
+    // Reset state — goes straight to 'playing' (not 'ready')
     this.score = 0;
     this.phase = 'playing';
     this.currentTier = randomSpawnTier();
@@ -184,6 +196,7 @@ export class GameEngine {
     this.floatTexts = [];
     this.popAnims.clear();
     this.celebrated.clear();
+    this.hitstopUntil = 0;
 
     this.emitState();
   }
@@ -247,12 +260,11 @@ export class GameEngine {
         const b = pair.bodyB as OrbBody;
 
         if (!a.orbId || !b.orbId) {
-          // One of them is a wall/floor — play land sound
+          // One of them is a wall/floor — squash on land
           if (a.orbId || b.orbId) {
             const orb = (a.orbId ? a : b);
             if (!orb.landedAt) {
               orb.landedAt = now;
-              if (this.soundEnabled) playLand();
               orb.squashUntil = now + 120;
             }
           }
@@ -291,6 +303,11 @@ export class GameEngine {
         this.score += earned;
         if (this.score > this.best) this.best = this.score;
 
+        // Hitstop on tier >= 7
+        if (newTier >= 7) {
+          this.hitstopUntil = Date.now() + 50;
+        }
+
         // Particles
         this.spawnParticles(mx, my, getTier(newTier).color, 14);
 
@@ -306,7 +323,7 @@ export class GameEngine {
 
         // Haptics + audio
         tap();
-        if (this.soundEnabled) playMerge(newTier);
+        sfxMerge(newTier, this.comboCount);
 
         // Confetti for tiers 9-11 (first time each)
         if (newTier >= 9 && !this.celebrated.has(newTier)) {
@@ -333,13 +350,16 @@ export class GameEngine {
 
   // ——— Private: game loop ———
 
-  private start(): void {
-    Matter.Runner.run(this.runner, this.engine);
+  /** Start the rAF render loop only (physics runner starts on start()). */
+  private startRenderLoop(): void {
     const loop = (time: number) => {
-      const dt = Math.min(time - this.lastFrameTime, 50);
+      const rawDt = Math.min(time - this.lastFrameTime, 50);
       this.lastFrameTime = time;
-      // animations/danger timers all use the Date.now() clock — never mix
-      // it with the rAF timestamp (epoch deltas turn into negative scales)
+
+      // Hitstop: slow physics dt to 5% when active
+      const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+      const dt = rawDt * scale;
+
       this.tick(dt, Date.now());
       this.rafId = requestAnimationFrame(loop);
     };
@@ -350,7 +370,7 @@ export class GameEngine {
   }
 
   private tick(dt: number, now: number): void {
-    if (this.phase === 'over') {
+    if (this.phase === 'over' || this.phase === 'ready') {
       this.renderFrame(now);
       return;
     }
@@ -390,6 +410,7 @@ export class GameEngine {
     this.phase = 'over';
     Matter.Runner.stop(this.runner);
     pop();
+    sfxDeath();
     this.emitState();
   }
 
