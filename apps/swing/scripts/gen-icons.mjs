@@ -1,0 +1,51 @@
+/** Swing King icons — character on a rope arc over dusk gradient. */
+import { chromium } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const pub = join(here, '..', 'public');
+mkdirSync(pub, { recursive: true });
+
+const mark = (inset, rx = 24) => `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1a1038"/>
+        <stop offset="1" stop-color="#4a1c52"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" rx="${rx}" fill="url(#bg)"/>
+    <g transform="translate(${inset} ${inset}) scale(${(100 - inset * 2) / 100})">
+      <circle cx="50" cy="18" r="6" fill="#ffe066"/>
+      <line x1="50" y1="18" x2="72" y2="56" stroke="#f5e9d0" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="72" cy="58" r="12" fill="#ff9ec7"/>
+      <circle cx="76.5" cy="55" r="3.4" fill="#ffffff"/>
+      <circle cx="77.6" cy="55" r="1.8" fill="#33122a"/>
+      <path d="M20 84 Q50 70 80 84" stroke="#ff6e8a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </g>
+  </svg>`;
+
+writeFileSync(join(pub, 'favicon.svg'), mark(0).trim());
+
+const targets = [
+  { file: 'pwa-192.png', size: 192, inset: 0, rx: 24, transparent: true },
+  { file: 'pwa-512.png', size: 512, inset: 0, rx: 24, transparent: true },
+  { file: 'maskable-512.png', size: 512, inset: 10, rx: 0, transparent: false },
+  { file: 'apple-touch-icon.png', size: 180, inset: 0, rx: 0, transparent: false },
+];
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+for (const t of targets) {
+  await page.setViewportSize({ width: t.size, height: t.size });
+  await page.setContent(
+    `<style>*{margin:0}svg{display:block;width:${t.size}px;height:${t.size}px}</style>${mark(t.inset, t.rx)}`,
+  );
+  const buf = await page.screenshot({ omitBackground: t.transparent });
+  writeFileSync(join(pub, t.file), buf);
+  console.log('wrote', t.file);
+}
+await browser.close();
+console.log('icons done');
