@@ -38,7 +38,6 @@ const HIGH_TIER_CONFETTI: Record<number, string[]> = {
 export class GameEngine {
   private engine: Matter.Engine;
   private runner: Matter.Runner;
-  private canvas: HTMLCanvasElement;
   private renderer: Renderer;
 
   // Container bounds in logical CSS px
@@ -93,7 +92,6 @@ export class GameEngine {
   private onStateChange: ((s: GameState) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, best: number) {
-    this.canvas = canvas;
     this.renderer = new Renderer(canvas);
     this.best = best;
     this.currentTier = randomSpawnTier();
@@ -340,7 +338,9 @@ export class GameEngine {
     const loop = (time: number) => {
       const dt = Math.min(time - this.lastFrameTime, 50);
       this.lastFrameTime = time;
-      this.tick(dt, time);
+      // animations/danger timers all use the Date.now() clock — never mix
+      // it with the rAF timestamp (epoch deltas turn into negative scales)
+      this.tick(dt, Date.now());
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame((t) => {
@@ -423,7 +423,7 @@ export class GameEngine {
       const anim = this.popAnims.get(body.orbId);
       let scale = 1;
       if (anim) {
-        const t = Math.min(1, (now - anim.startTime) / anim.duration);
+        const t = Math.max(0, Math.min(1, (now - anim.startTime) / anim.duration));
         if (t >= 1) {
           this.popAnims.delete(body.orbId);
         } else {

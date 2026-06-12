@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const ARTIFACTS = path.join(__dirname, '..', '..', '..', 'artifacts', 'drop');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const ARTIFACTS = path.join(here, '..', '..', '..', 'artifacts', 'drop');
 
 type MergeDropAPI = {
   score: () => number;
