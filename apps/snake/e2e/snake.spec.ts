@@ -25,6 +25,8 @@ test('match-3 pop: eating 3 same colors pops them and scores', async ({ page }) 
   await page.goto('./');
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await page.waitForFunction(() => typeof window.__snakePop !== 'undefined');
+  await page.getByTestId('start-btn').click();
+  await page.waitForTimeout(200);
 
   const len0 = await page.evaluate(() => window.__snakePop.length());
   await page.evaluate(() => {
@@ -45,6 +47,8 @@ test('match-3 pop: eating 3 same colors pops them and scores', async ({ page }) 
 test('death overlay and restart', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__snakePop !== 'undefined');
+  await page.getByTestId('start-btn').click();
+  await page.waitForTimeout(200);
   await page.evaluate(() => {
     window.__snakePop.eatColor(2);
     window.__snakePop.eatColor(2);
@@ -66,6 +70,8 @@ test('death overlay and restart', async ({ page }) => {
 test('screenshots: colorful gameplay + game over, dark and light', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__snakePop !== 'undefined');
+  await page.getByTestId('start-btn').click();
+  await page.waitForTimeout(200);
   // grow a long colorful snake without triggering pops (alternate colors)
   await page.evaluate(() => {
     const seq = [0, 1, 2, 3, 4, 0, 2, 1, 3, 0, 4, 2];
@@ -74,10 +80,10 @@ test('screenshots: colorful gameplay + game over, dark and light', async ({ page
   await page.waitForTimeout(900);
   await page.screenshot({ path: path.join(ARTIFACTS, 'gameplay-mobile-dark.png') });
 
-  await page.getByTestId('theme-toggle').click();
+  await page.getByTestId('mute-toggle').click();
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(ARTIFACTS, 'gameplay-mobile-light.png') });
-  await page.getByTestId('theme-toggle').click();
+  await page.getByTestId('mute-toggle').click();
 
   await page.evaluate(() => window.__snakePop.die());
   await page.waitForTimeout(600);

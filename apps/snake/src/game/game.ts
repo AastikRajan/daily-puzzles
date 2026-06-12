@@ -5,6 +5,7 @@
  */
 import { tap, death as errorHaptic } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxEat, sfxPop, sfxCombo, sfxDeath, sfxStart } from '../lib/sfx';
 
 export const COLORS = ['#00f5a0', '#ff4ecd', '#4e9fff', '#ffe94e', '#ff7b2e'];
 const COLOR_DEEP = ['#00c47e', '#cc30a0', '#2878d4', '#cdb820', '#cc5a12'];
@@ -21,7 +22,7 @@ const TURN_RATE = 4.2;    // rad/s
 const POP_DELAY = 300;    // ms pulse warning before segments pop
 const COMBO_WINDOW = 2000;
 const BOOST_COST_MS = 1000;
-const RIVAL_COUNT = 3;
+const RIVAL_COUNT = 2;
 const RIVAL_RESPAWN_MS = 5000;
 const STEP = 1000 / 60;
 
@@ -47,7 +48,7 @@ export interface HudState {
   best: number;
   length: number;
   combo: number;
-  phase: 'playing' | 'dead';
+  phase: 'ready' | 'playing' | 'dead';
 }
 
 export class SnakeGame {
@@ -70,7 +71,9 @@ export class SnakeGame {
   private boosting = false;
   private boostDebt = 0;
   private shake = 0;
-  private phase: 'playing' | 'dead' = 'playing';
+  private hitstopUntil = 0;
+  private phase: 'ready' | 'playing' | 'dead' = 'ready';
+  private zoom = 1;
   private pointer: { x: number; y: number } | null = null;
   private acc = 0;
   private lastT = 0;
@@ -102,16 +105,27 @@ export class SnakeGame {
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
     this.viewW = w;
     this.viewH = h;
+    // desktop fills the screen with a wider view of the arena; phones keep
+    // the close-up — the canvas is always full-bleed, never letterboxed
+    this.zoom = Math.max(0.9, Math.min(w, h) / 800);
     canvas.width = w * this.dpr;
     canvas.height = h * this.dpr;
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
   }
 
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    this.emitHud();
+  }
+
   setPointer(p: { x: number; y: number } | null): void { this.pointer = p; }
   setBoost(b: boolean): void { this.boosting = b; }
 
   restart(): void {
+    sfxStart();
     this.player = this.makeWorm(WORLD / 2, WORLD / 2, true);
     this.rivals = [];
     for (let i = 0; i < RIVAL_COUNT; i++) this.rivals.push(this.spawnRival());
@@ -195,6 +209,7 @@ export class SnakeGame {
     (window as unknown as Record<string, unknown>)['__snakePop'] = {
       score: () => this.score,
       length: () => this.player.colors.length,
+      start: () => this.start(),
       die: () => this.die(),
       eatColor: (c: number) => {
         this.player.colors.push(((c % COLORS.length) + COLORS.length) % COLORS.length);
@@ -209,7 +224,9 @@ export class SnakeGame {
   private loop = (t: number): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'visible') {
-      this.acc += Math.min(t - this.lastT, 100);
+      // hitstop: world runs at 5% speed for a few frames after big impacts
+      const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+      this.acc += Math.min(t - this.lastT, 100) * scale;
       while (this.acc >= STEP) {
         this.step(STEP / 1000);
         this.acc -= STEP;
@@ -310,6 +327,7 @@ export class SnakeGame {
         this.orbs.push(this.randomOrb());
         w.colors.push(o.color);
         tap();
+        sfxEat();
         this.checkPops(false);
         this.emitHud();
       }
@@ -397,7 +415,12 @@ export class SnakeGame {
     }
     const hp = this.segPos(this.player, Math.max(0, index - 1));
     this.floats.push({ x: hp.x, y: hp.y - 20, text: this.combo > 1 ? `+${points} ×${this.combo}` : `+${points}`, life: 1 });
-    if (count >= 4 && !this.reducedMotion()) this.shake = 1;
+    if (count >= 4 && !this.reducedMotion()) {
+      this.shake = 1;
+      this.hitstopUntil = Date.now() + 45; // heavy pop sells its weight
+    }
+    sfxPop(count);
+    if (this.combo > 1) sfxCombo(this.combo);
     tap();
     // chain reaction: removing a run can join two runs of the same color
     this.checkPops(false);
@@ -428,6 +451,8 @@ export class SnakeGame {
         if (Math.hypot(p.x - rh.x, p.y - rh.y) < HEAD_R + SEG_R - 3) {
           r.alive = false;
           r.respawnAt = now + RIVAL_RESPAWN_MS;
+          this.hitstopUntil = Date.now() + 70; // K.O. = heavy hitstop
+          sfxPop(3);
           for (let k = 0; k < r.colors.length; k++) {
             const sp = this.segPos(r, k);
             this.orbs.push({
@@ -452,6 +477,7 @@ export class SnakeGame {
     if (this.phase === 'dead') return;
     this.phase = 'dead';
     errorHaptic();
+    sfxDeath();
     const h = this.head(this.player);
     for (let i = 0; i < this.player.colors.length; i++) {
       const p = this.segPos(this.player, i);
@@ -484,13 +510,15 @@ export class SnakeGame {
   /** screen→world for pointer steering */
   toWorld(sx: number, sy: number): { x: number; y: number } {
     const cam = this.camera();
-    return { x: sx + cam.x, y: sy + cam.y };
+    return { x: sx / this.zoom + cam.x, y: sy / this.zoom + cam.y };
   }
 
   private camera(): { x: number; y: number } {
+    const vw = this.viewW / this.zoom;
+    const vh = this.viewH / this.zoom;
     const h = this.head(this.player);
-    const x = Math.max(0, Math.min(WORLD - this.viewW, h.x - this.viewW / 2));
-    const y = Math.max(0, Math.min(WORLD - this.viewH, h.y - this.viewH / 2));
+    const x = Math.max(0, Math.min(WORLD - vw, h.x - vw / 2));
+    const y = Math.max(0, Math.min(WORLD - vh, h.y - vh / 2));
     return { x, y };
   }
 
@@ -500,13 +528,15 @@ export class SnakeGame {
     const { ctx, dpr } = this;
     const now = Date.now();
     const cam = this.camera();
+    const vw = this.viewW / this.zoom;
+    const vh = this.viewH / this.zoom;
     const shx = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
     const shy = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(dpr * this.zoom, 0, 0, dpr * this.zoom, 0, 0);
     // void background + vignette
     ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, this.viewW, this.viewH);
+    ctx.fillRect(0, 0, vw, vh);
 
     ctx.save();
     ctx.translate(-cam.x + shx, -cam.y + shy);

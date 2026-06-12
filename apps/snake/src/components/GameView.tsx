@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { SnakeGame, type HudState } from '../game/game';
 import { useSettings } from '../state/settings';
+import { isMuted, setMuted, sfxClick } from '../lib/sfx';
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SnakeGame | null>(null);
-  const [hud, setHud] = useState<HudState>({ score: 0, best: 0, length: 5, combo: 0, phase: 'playing' });
+  const [hud, setHud] = useState<HudState>({ score: 0, best: 0, length: 5, combo: 0, phase: 'ready' });
+  const [muted, setMutedState] = useState(isMuted());
   const prevBest = useRef(0);
-  const setSettings = useSettings((s) => s.set);
-  const theme = useSettings((s) => s.theme);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -20,11 +20,7 @@ export default function GameView() {
     );
     gameRef.current = game;
 
-    const fit = () => {
-      const w = Math.min(window.innerWidth, 560);
-      const h = window.innerHeight;
-      game.resize(w, h, canvas);
-    };
+    const fit = () => game.resize(window.innerWidth, window.innerHeight, canvas);
     fit();
     window.addEventListener('resize', fit);
     return () => {
@@ -33,7 +29,6 @@ export default function GameView() {
     };
   }, []);
 
-  // celebrate new best on death (once)
   useEffect(() => {
     if (hud.phase === 'dead') {
       if (hud.score > 0 && hud.score >= hud.best && hud.best !== prevBest.current) {
@@ -48,20 +43,19 @@ export default function GameView() {
     return gameRef.current!.toWorld(e.clientX - rect.left, e.clientY - rect.top);
   };
 
+  const playing = hud.phase === 'playing';
+
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
           gameRef.current?.setPointer(pointerToWorld(e));
-          gameRef.current?.setBoost(true);
         }}
         onPointerMove={(e) => gameRef.current?.setPointer(pointerToWorld(e))}
-        onPointerUp={() => gameRef.current?.setBoost(false)}
-        onPointerCancel={() => gameRef.current?.setBoost(false)}
       />
 
       <div className="hud">
@@ -73,14 +67,53 @@ export default function GameView() {
 
       <button
         className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
-        data-testid="theme-toggle"
+        onClick={() => {
+          setMuted(!muted);
+          setMutedState(!muted);
+          sfxClick();
+        }}
+        aria-label={muted ? 'Unmute' : 'Mute'}
+        data-testid="mute-toggle"
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">Steer with your finger · hold to boost (costs tail) · line up 3 colors to POP</p>
+      {playing && (
+        <button
+          className="boost-btn"
+          data-testid="boost-btn"
+          onPointerDown={(e) => {
+            (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+            gameRef.current?.setBoost(true);
+          }}
+          onPointerUp={() => gameRef.current?.setBoost(false)}
+          onPointerCancel={() => gameRef.current?.setBoost(false)}
+          aria-label="Boost"
+        >
+          🚀
+        </button>
+      )}
+
+      {hud.phase === 'ready' && (
+        <div className="start-overlay" data-testid="start-overlay">
+          <h1 className="start-title">Snake Pop</h1>
+          <p className="start-sub">your body is the match-3 board</p>
+          <div className="howto-row">
+            <span>👆 move = steer</span>
+            <span>🚀 hold = boost</span>
+            <span>🟢🟢🟢 = POP!</span>
+          </div>
+          <button
+            className="btn3d start-btn"
+            data-testid="start-btn"
+            onClick={() => gameRef.current?.start()}
+          >
+            ▶ &nbsp;PLAY
+          </button>
+        </div>
+      )}
+
+      {playing && <p className="hint-text">3 same-color segments in a row POP for points</p>}
 
       {hud.phase === 'dead' && (
         <div className="overlay" role="dialog" aria-label="Game over" data-testid="game-over-overlay">

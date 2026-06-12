@@ -1,4 +1,4 @@
-/* ————— Snake Pop design system: NEON ARCADE —————
+/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ Snake Pop design system: NEON ARCADE Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€
    Dark-first: deep void background, neon segment colors,
    glassy raised panels, Duolingo-style 3D buttons. */
 
@@ -20,7 +20,7 @@
     0 14px 36px rgba(0, 0, 0, 0.55);
   --edge-shadow: rgba(0, 0, 0, 0.6);
 
-  /* snake segment colors — 5 vivid neons */
+  /* snake segment colors Ã¢â‚¬â€ 5 vivid neons */
   --c0: #00f5a0;  /* neon mint */
   --c0-deep: #00c47e;
   --c1: #ff4ecd;  /* hot pink */
@@ -32,7 +32,7 @@
   --c4: #ff7b2e;  /* vivid orange */
   --c4-deep: #cc5a12;
 
-  /* accent for UI (green→pink gradient, brand mark) */
+  /* accent for UI (greenÃ¢â€ â€™pink gradient, brand mark) */
   --accent: #00f5a0;
   --accent-deep: #00c47e;
   --g-accent: linear-gradient(135deg, #00f5a0, #ff4ecd);
@@ -164,7 +164,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   transition-duration: 0.01ms !important;
 }
 
-/* ——— game layout ——— */
+/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ game layout Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */
 .game-root {
   position: relative;
   width: 100%;
@@ -309,4 +309,104 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   font-size: 26px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ overhaul: full-bleed stage + start screen + boost Ã¢â‚¬â€Ã¢â‚¬â€Ã¢â‚¬â€ */
+.game-canvas.fullbleed {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+}
+
+.start-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(60% 50% at 50% 42%, rgba(10,10,26,0.25) 0%, rgba(10,10,26,0.78) 100%);
+  z-index: 20;
+  padding: 24px;
+  text-align: center;
+}
+
+.start-title {
+  font-family: var(--font-display);
+  font-size: clamp(46px, 9vw, 86px);
+  font-weight: 800;
+  margin: 0;
+  background: var(--g-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 22px rgba(0, 245, 160, 0.35));
+}
+
+.start-sub {
+  font-size: clamp(14px, 2.4vw, 19px);
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: -8px 0 4px;
+}
+
+.howto-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.howto-row span {
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 0 2px 0 var(--edge-shadow);
+}
+
+.start-btn {
+  font-size: 22px;
+  padding: 18px 52px;
+  margin-top: 10px;
+  animation: start-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes start-glow {
+  0%, 100% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 18px rgba(0, 245, 160, 0.35); }
+  50% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 42px rgba(0, 245, 160, 0.75); }
+}
+  50% { transform: translateY(-6px); }
+}
+
+.boost-btn {
+  position: fixed;
+  right: 22px;
+  bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  font-size: 30px;
+  background: var(--surface-solid);
+  border: 2px solid var(--surface-edge);
+  box-shadow: 0 5px 0 var(--edge-shadow), 0 10px 26px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+
+.boost-btn:active {
+  transform: translateY(5px) scale(0.96);
+  box-shadow: 0 0 0 var(--edge-shadow);
 }

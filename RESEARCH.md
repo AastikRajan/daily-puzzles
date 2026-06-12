@@ -28,3 +28,31 @@ Findings gathered before/while building. Sources cited inline.
 
 - vite-plugin-pwa (Workbox `generateSW`) is still the standard Vite PWA path; precache the built assets, `registerType: 'autoUpdate'`. Verified against current npm release at install time.
 - Playwright official `@playwright/test` with `webServer` config pointing at `vite preview` for e2e + screenshots; emulate devices via viewport + `colorScheme`.
+
+## Deep-research digest #1 — modern web-game architecture (Gemini, 2026-06)
+Actionable findings adopted: (1) PointerEvents + `touch-action:none` as the only input path;
+(2) decorated-gutter letterboxing — fixed internal aspect, `object-fit: contain`, full-bleed
+blurred/stylized backdrop behind the canvas for desktop; (3) audio unlock wired to the first
+UI gesture (our start buttons) — validates the tap-to-play screen; (4) visibility-change pause
+to avoid delta explosions; (5) procedural synth SFX (zzfx-style) over audio files; (6) fixed
+timestep accumulator for physics determinism. Roadmap (v2): Rapier WASM physics w/ CCD,
+idb-keyval over localStorage, Three.js MeshToonMaterial + hemisphere/directional rig +
+planar shadows + InstancedMesh for true low-poly 3D titles; CC0 assets (Kenney/Quaternius/
+Poly Pizza); GSAP now MIT. Perf budget: <100 draw calls, zero allocations in the loop.
+
+## Deep-research digest #2 — design/UX/juice cookbook (Gemini, 2026-06)
+THE numbers to apply everywhere: tap-to-start overlay over the LIVE world (no menus);
+easeOutBack cubic-bezier(.34,1.56,.64,1) for pop-ins, easeOut for slides; screenshake
+amp = impactVelocity x 0.0025 (small 2-4px/100ms, med 8-12px/250ms, large 20-30px/500ms
+damped); hitstop 16-33ms light / 66-100ms heavy at 3-5% timescale (never full pause);
+squash&stretch with volume preservation (land Y70%/X130%, recover ~150ms easeOutBack);
+particles 5-10 small / 20-30 medium / 100+ big; floating text drifts +50px over 800ms;
+haptics 10ms light / 30ms heavy with 50ms cooldown; combo SFX pitch = base x 1.05946^n
+capped at 2.0; no BGM (percussive SFX symphony); result screens: score counts up 800-1200ms
+easeOutCubic, stars stamp 200ms apart w/ rising pitch, confetti+fanfare on new best;
+fail->retry loop <800ms; HUD: score top-centre, settings top-right, currency top-left;
+desktop: 16:9 lock, decorated blurred gutters, WASD+arrows, never Escape, "Click" not
+"Tap" via pointer detection; streaks = loss aversion + Day-7 variable reward + freezes.
+Art recipes: snake=flat neon on near-black grid; hole-eater=pastel ground + white blocks +
+rim-lit hole; tower-smash=glossy candy plastic on matte pillar; word=minimalist flat tiles.
+10 new game concepts logged (suika-word, rhythm paper.io, ghost-runner, queens-cartography...).
