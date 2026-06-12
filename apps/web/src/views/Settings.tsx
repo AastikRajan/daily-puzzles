@@ -1,6 +1,36 @@
 import { useUi } from '../state/ui';
 import { useSettings, type ThemeChoice } from '../state/settings';
+import { useInstall, promptInstall, isStandalone, isIOS } from '../lib/install';
 import './settings.css';
+
+function InstallSection() {
+  const deferred = useInstall((s) => s.deferred);
+  const installed = useInstall((s) => s.installed);
+
+  if (installed || isStandalone()) {
+    return <p className="install-note">✅ Installed — you're playing the app.</p>;
+  }
+  if (deferred) {
+    return (
+      <button className="btn3d" onClick={() => promptInstall()} data-testid="install-button">
+        📲 Install Daily Logic
+      </button>
+    );
+  }
+  if (isIOS()) {
+    return (
+      <p className="install-note">
+        On iPhone: tap <strong>Share</strong> <span aria-hidden>⎋</span> in Safari, then{' '}
+        <strong>Add to Home Screen</strong> to install Daily Logic.
+      </p>
+    );
+  }
+  return (
+    <p className="install-note">
+      Open this site in Chrome, Edge or Safari to install it as an app.
+    </p>
+  );
+}
 
 const THEMES: { id: ThemeChoice; label: string; premium?: boolean }[] = [
   { id: 'auto', label: 'Auto' },
@@ -78,6 +108,11 @@ export default function Settings() {
             onChange={(e) => settings.set({ reducedMotion: e.target.checked })}
           />
         </label>
+      </section>
+
+      <section className="set-section">
+        <h2 className="set-heading">App</h2>
+        <InstallSection />
       </section>
 
       <p className="set-footnote">

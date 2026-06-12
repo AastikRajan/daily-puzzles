@@ -19,7 +19,7 @@
   background: var(--g-sudoku);
   color: #fff;
   box-shadow: 0 4px 0 var(--c-sudoku-deep), 0 8px 16px rgba(79, 124, 255, 0.35);
-  animation: mark-bob 3.6s ease-in-out infinite;
+  animation: mark-bob 3.6s ease-in-out 2;
 }
 
 @keyframes mark-bob {
