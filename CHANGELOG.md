@@ -35,3 +35,15 @@
 ## Phase 1 — Engine package ✅ (full gate: 201 puzzles/type)
 - Pure TS engine, zero deps, no Math.random (test-enforced); sfc32 + FNV-1a determinism; daily seed + weekday difficulty rhythm.
 - Sudoku ~9ms avg · Killer ~100ms · Nonogram ~7ms · Kakuro ~4ms · Binairo (6/8/10) — all with proven-unique solutions via independent counting solvers; killer/kakuro use seed-givens + reveal-repair against domino-swap ambiguity (see DECISIONS.md #16-18, RESEARCH.md).
+
+## Waves 2-4 — the 10-game studio ✅ (orchestrated build)
+All nine new games shipped with the same gate discipline (typecheck → tests → build →
+Playwright playthrough → screenshot review): **Daily Word** (Guess/Anagrams/Word Hunt,
+GitHub word lists, answer pool fixed to popular∩guesses), **Daily Grid** (Queens/Tango/Zip
+with budgeted uniqueness counters; region palette fixed), **Merge Drop** (matter-js Suika
+merge; rAF clock bug fixed), **Glow Golf** (daily seeded 9-hole neon minigolf; rAF dep-loop
+bug fixed; e2e sinks real holes), **Snake Pop** (snake whose body is a match-3 board, AI
+rivals), **Balance!** (daily seeded matter-js seesaw stacking, Wordle-style share),
+**Flock!** (boids firefly herding through gates past predators), **Echo Maze** (daily
+memorize-then-dark maze with echo pulses, BFS-proven solvable), **Orbit Hop** (ring-hop +
+gravity slingshot arcade). Each is its own installable offline PWA on ports 5173-5182.
