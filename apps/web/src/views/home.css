@@ -222,6 +222,10 @@
   box-shadow: 0 2px 0 var(--edge-shadow);
 }
 
+.share-day {
+  margin-bottom: 16px;
+}
+
 .back-to-today {
   font-family: var(--font-display);
   font-weight: 700;

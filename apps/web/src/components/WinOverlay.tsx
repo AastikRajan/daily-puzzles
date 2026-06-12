@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import type { PuzzleType } from '@daily-logic/engine';
 import { utcDateString } from '@daily-logic/engine';
@@ -8,6 +8,7 @@ import { useSettings } from '../state/settings';
 import { typeStreak } from '../lib/streaks';
 import { TYPE_META } from '../lib/meta';
 import { formatTime } from '../lib/time';
+import { buildPuzzleShare, shareText } from '../lib/share';
 
 const CONFETTI_COLORS: Record<PuzzleType, string[]> = {
   sudoku: ['#4f7cff', '#38c6ff', '#ffffff', '#ffd84d'],
@@ -29,10 +30,23 @@ export default function WinOverlay({
   hintsUsed: number;
 }) {
   const go = useUi((s) => s.go);
+  const date = useUi((s) => s.date);
   const completions = useProgress((s) => s.completions);
   const reducedMotion = useSettings((s) => s.reducedMotion);
   const streak = typeStreak(completions, type, utcDateString());
   const meta = TYPE_META[type];
+  const [shareState, setShareState] = useState<'idle' | 'copied' | 'shared'>('idle');
+
+  const onShare = async () => {
+    const text = buildPuzzleShare(
+      type,
+      date,
+      { timeMs: elapsedMs, mistakes, hintsUsed, completedAt: Date.now() },
+      streak,
+    );
+    const result = await shareText(text);
+    if (result !== 'failed') setShareState(result);
+  };
 
   useEffect(() => {
     if (reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -78,9 +92,12 @@ export default function WinOverlay({
           <button
             className="btn3d"
             style={{ '--btn': meta.accent, '--btn-deep': meta.accentDeep } as React.CSSProperties}
-            onClick={() => go('home')}
-            data-testid="win-home"
+            onClick={onShare}
+            data-testid="win-share"
           >
+            {shareState === 'idle' ? 'Share' : shareState === 'copied' ? 'Copied!' : 'Shared!'}
+          </button>
+          <button className="btn3d ghost" onClick={() => go('home')} data-testid="win-home">
             Continue
           </button>
         </div>

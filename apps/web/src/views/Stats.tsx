@@ -4,6 +4,7 @@ import { useProgress } from '../state/progress';
 import { typeStats, anyStreak, allStreak } from '../lib/streaks';
 import { TYPE_META, TYPE_ORDER } from '../lib/meta';
 import { formatTime } from '../lib/time';
+import Heatmap from '../components/Heatmap';
 import './stats.css';
 
 export default function Stats() {
@@ -38,6 +39,11 @@ export default function Stats() {
           <span className="stats-cap">puzzles solved</span>
         </div>
       </div>
+
+      <section className="stats-cal">
+        <h2 className="set-heading">Last 12 weeks</h2>
+        <Heatmap log={completions} />
+      </section>
 
       <div className="stats-types">
         {TYPE_ORDER.map((t) => {

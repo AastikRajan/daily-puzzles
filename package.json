@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "scripts": {
-    "test": "npm run test -w @daily-logic/engine",
+    "test": "npm run test -w @daily-logic/engine && npm run test -w web",
     "test:full": "npm run test:full -w @daily-logic/engine",
     "typecheck": "npm run typecheck -w @daily-logic/engine && npm run typecheck -w web",
     "dev": "npm run dev -w web",

@@ -21,6 +21,43 @@
   color: var(--ink-soft);
 }
 
+.stats-cal {
+  padding-bottom: 22px;
+}
+
+.stats-cal .set-heading {
+  font-size: 12px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 4px;
+  justify-content: start;
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--radius-small);
+  box-shadow: 0 3px 0 var(--edge-shadow);
+  padding: 12px;
+}
+
+.heat-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 14px;
+  border-radius: 4px;
+  background: var(--good);
+}
+
+.heat-cell[data-count='0'] {
+  background: var(--line);
+}
+
 .stats-types {
   display: flex;
   flex-direction: column;

@@ -10,6 +10,7 @@ import { useProgress, isCompleted, completionOf } from '../state/progress';
 import { typeStreak, allStreak } from '../lib/streaks';
 import { TYPE_META, TYPE_ORDER } from '../lib/meta';
 import { formatDate, formatTime, formatCountdown } from '../lib/time';
+import { buildDailyShare, shareText } from '../lib/share';
 import TypeGlyph from '../components/TypeGlyph';
 import './home.css';
 
@@ -88,6 +89,21 @@ function Card({ type, date }: { type: PuzzleType; date: string }) {
   );
 }
 
+function ShareDayButton({ date }: { date: string }) {
+  const completions = useProgress((s) => s.completions);
+  const [state, setState] = useState<'idle' | 'copied' | 'shared'>('idle');
+  const onShare = async () => {
+    const text = buildDailyShare(date, completions, allStreak(completions, utcDateString()));
+    const result = await shareText(text);
+    if (result !== 'failed') setState(result);
+  };
+  return (
+    <button className="btn3d share-day" onClick={onShare} data-testid="share-day">
+      {state === 'idle' ? '🎉 Share your day' : state === 'copied' ? 'Copied!' : 'Shared!'}
+    </button>
+  );
+}
+
 export default function Home() {
   const date = useUi((s) => s.date);
   const go = useUi((s) => s.go);
@@ -95,6 +111,7 @@ export default function Home() {
   const completions = useProgress((s) => s.completions);
   const today = utcDateString();
   const streakAll = allStreak(completions, today);
+  const allDone = TYPE_ORDER.every((t) => isCompleted(completions, date, t));
 
   const [countdown, setCountdown] = useState(msUntilNextPuzzle());
   useEffect(() => {
@@ -156,6 +173,7 @@ export default function Home() {
       </main>
 
       <footer className="home-foot">
+        {allDone && <ShareDayButton date={date} />}
         {viewingToday ? (
           <p data-testid="countdown">
             New puzzles in <strong>{formatCountdown(countdown)}</strong>
