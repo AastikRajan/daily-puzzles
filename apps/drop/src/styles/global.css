@@ -1,0 +1,225 @@
+/* ————— Merge Drop design system: CANDY POP —————
+   Candy-sweet physics game UI: vivid pink-to-orange gradient,
+   glassy raised panels, Duolingo-style 3D buttons, springy micro-interactions. */
+
+:root {
+  /* stage */
+  --bg-a: #fff0fa;
+  --bg-b: #ffe8f5;
+  --bg-c: #fff4e8;
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-solid: #ffffff;
+  --surface-edge: rgba(255, 255, 255, 0.7);
+  --ink: #2d1a2e;
+  --ink-soft: rgba(45, 26, 46, 0.64);
+  --ink-faint: rgba(45, 26, 46, 0.4);
+  --line: rgba(45, 26, 46, 0.1);
+  --line-strong: rgba(45, 26, 46, 0.45);
+  --card-shadow:
+    0 2px 6px rgba(220, 80, 140, 0.08),
+    0 12px 32px rgba(220, 80, 140, 0.14);
+  --edge-shadow: rgba(200, 60, 120, 0.22);
+
+  /* candy accent */
+  --c-brand: #ff6eb4;
+  --c-brand-deep: #d94d8c;
+  --c-brand-soft: rgba(255, 110, 180, 0.14);
+  --g-brand: linear-gradient(135deg, #ff6eb4, #ff9a44);
+
+  --c-orange: #ff9a44;
+  --c-orange-deep: #d97020;
+
+  --good: #1fc77b;
+  --bad: #ff5e62;
+
+  --font-display: 'Baloo 2 Variable', 'Comic Sans MS', cursive;
+  --font-ui: 'Nunito Variable', 'Segoe UI', sans-serif;
+
+  --radius: 22px;
+  --radius-small: 14px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-a: #1a0a1e;
+  --bg-b: #2a0f2e;
+  --bg-c: #1e0f10;
+  --surface: rgba(42, 18, 50, 0.85);
+  --surface-solid: #2a1232;
+  --surface-edge: rgba(255, 255, 255, 0.08);
+  --ink: #ffe8f8;
+  --ink-soft: rgba(255, 232, 248, 0.66);
+  --ink-faint: rgba(255, 232, 248, 0.4);
+  --line: rgba(255, 232, 248, 0.12);
+  --line-strong: rgba(255, 232, 248, 0.5);
+  --card-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    0 14px 36px rgba(0, 0, 0, 0.4);
+  --edge-shadow: rgba(0, 0, 0, 0.55);
+
+  --c-brand: #ff8fcb;
+  --c-brand-deep: #d96098;
+  --c-brand-soft: rgba(255, 143, 203, 0.2);
+  --g-brand: linear-gradient(135deg, #ff8fcb, #ffb060);
+
+  --good: #3ddd92;
+  --bad: #ff7a76;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-a: #1a0a1e;
+    --bg-b: #2a0f2e;
+    --bg-c: #1e0f10;
+    --surface: rgba(42, 18, 50, 0.85);
+    --surface-solid: #2a1232;
+    --surface-edge: rgba(255, 255, 255, 0.08);
+    --ink: #ffe8f8;
+    --ink-soft: rgba(255, 232, 248, 0.66);
+    --ink-faint: rgba(255, 232, 248, 0.4);
+    --line: rgba(255, 232, 248, 0.12);
+    --line-strong: rgba(255, 232, 248, 0.5);
+    --card-shadow: 0 2px 6px rgba(0,0,0,0.3), 0 14px 36px rgba(0,0,0,0.4);
+    --edge-shadow: rgba(0,0,0,0.55);
+    --c-brand: #ff8fcb;
+    --c-brand-deep: #d96098;
+    --c-brand-soft: rgba(255,143,203,0.2);
+    --g-brand: linear-gradient(135deg, #ff8fcb, #ffb060);
+    --good: #3ddd92;
+    --bad: #ff7a76;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html { height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg-a);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(38% 30% at 12% 8%, var(--bg-b) 0%, transparent 70%),
+    radial-gradient(45% 36% at 88% 16%, var(--bg-c) 0%, transparent 72%),
+    radial-gradient(50% 42% at 50% 100%, var(--bg-b) 0%, transparent 75%),
+    var(--bg-a);
+}
+
+#root {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: var(--safe-top) 0 var(--safe-bottom);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--c-brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+h1, h2, h3 { margin: 0; font-weight: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+[data-motion='off'] *, [data-motion='off'] *::before, [data-motion='off'] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* ————— shared tactile primitives ————— */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.btn3d {
+  --btn: var(--c-brand);
+  --btn-deep: var(--c-brand-deep);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--btn);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  padding: 14px 26px;
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--btn-deep), 0 10px 18px rgba(0,0,0,0.18);
+  transition: transform 110ms ease, box-shadow 110ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn3d:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 var(--btn-deep), 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.btn3d.ghost {
+  background: var(--surface-solid);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--edge-shadow), 0 10px 18px rgba(0,0,0,0.1);
+}
+
+.btn3d.ghost:active {
+  box-shadow: 0 0 0 var(--edge-shadow), 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.hairline {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0;
+}
