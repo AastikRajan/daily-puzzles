@@ -1,0 +1,175 @@
+/* Balance! — warm workshop skin of the Arcade Pop system */
+
+:root {
+  --bg-a: #fdf3e3;
+  --bg-b: #ffe9d6;
+  --bg-c: #f6e3ff;
+  --surface: rgba(255, 252, 245, 0.88);
+  --surface-solid: #fffcf5;
+  --surface-edge: rgba(120, 80, 40, 0.12);
+  --ink: #4a3520;
+  --ink-soft: rgba(74, 53, 32, 0.66);
+  --ink-faint: rgba(74, 53, 32, 0.42);
+  --edge-shadow: rgba(150, 100, 50, 0.25);
+  --accent: #f5a05a;
+  --accent-deep: #d97f35;
+  --g-accent: linear-gradient(135deg, #f5a05a, #ff8fa3);
+  --good: #3fae74;
+  --bad: #e05c5c;
+  --font-display: 'Baloo 2 Variable', 'Comic Sans MS', cursive;
+  --font-ui: 'Nunito Variable', 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-a: #221a12;
+  --bg-b: #2e2014;
+  --bg-c: #261a2e;
+  --surface: rgba(50, 38, 26, 0.88);
+  --surface-solid: #382a1c;
+  --surface-edge: rgba(255, 220, 180, 0.12);
+  --ink: #ffeeda;
+  --ink-soft: rgba(255, 238, 218, 0.66);
+  --ink-faint: rgba(255, 238, 218, 0.4);
+  --edge-shadow: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; }
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg-a);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(40% 30% at 12% 8%, var(--bg-b) 0%, transparent 70%),
+    radial-gradient(45% 36% at 88% 16%, var(--bg-c) 0%, transparent 72%),
+    var(--bg-a);
+}
+#root { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+h1, h2, h3 { margin: 0; font-weight: inherit; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.app-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 28px;
+  background: var(--g-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.head-side { display: flex; gap: 8px; align-items: center; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--ink-soft);
+  box-shadow: 0 2px 0 var(--edge-shadow);
+  font-variant-numeric: tabular-nums;
+}
+.chip strong { color: var(--ink); }
+
+.tray {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 16px;
+  min-height: 46px;
+}
+.tray-shape {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid;
+  opacity: 0.55;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+.tray-shape[data-kind='circle'] { border-radius: 50%; }
+.tray-shape[data-kind='poly'] { border-radius: 6px; transform: rotate(45deg) scale(0.9); }
+.tray-shape.next { opacity: 1; transform: scale(1.25); box-shadow: 0 3px 8px var(--edge-shadow); }
+.tray-shape.next[data-kind='poly'] { transform: rotate(45deg) scale(1.1); }
+.tray-empty { font-size: 13px; font-weight: 700; color: var(--ink-faint); }
+
+.stage { position: relative; display: flex; justify-content: center; }
+.game-canvas {
+  display: block;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 20px;
+  box-shadow: 0 5px 0 var(--edge-shadow), 0 14px 30px rgba(120, 80, 40, 0.15);
+}
+.rotate-btn { position: absolute; right: 18px; bottom: 12px; cursor: pointer; }
+
+.hint-text { text-align: center; font-size: 13px; font-weight: 700; color: var(--ink-faint); margin: 10px 16px; }
+
+.overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(60, 40, 20, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 30; padding: 24px;
+  animation: ov-in 200ms ease-out;
+}
+@keyframes ov-in { from { opacity: 0; } to { opacity: 1; } }
+.card {
+  background: var(--surface-solid);
+  border: 1px solid var(--surface-edge);
+  border-radius: 24px;
+  box-shadow: 0 8px 0 var(--edge-shadow), 0 24px 50px rgba(80, 50, 20, 0.3);
+  padding: 28px 26px 20px;
+  width: 100%; max-width: 360px;
+  text-align: center;
+  animation: card-pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+@keyframes card-pop { from { opacity: 0; transform: scale(0.78) translateY(22px); } to { opacity: 1; transform: none; } }
+.card h2 {
+  font-family: var(--font-display); font-size: 34px; font-weight: 800;
+  background: var(--g-accent);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.card .sub { color: var(--ink-soft); font-weight: 700; font-size: 14px; margin: 2px 0 14px; }
+.rows { display: flex; flex-direction: column; gap: 3px; margin-bottom: 16px; font-size: 18px; letter-spacing: 2px; }
+.actions { display: flex; flex-direction: column; gap: 10px; }
+.countdown-note { font-size: 12.5px; font-weight: 700; color: var(--ink-faint); margin: 14px 0 0; }
+.countdown-note strong { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+
+.btn3d {
+  --btn: var(--accent); --btn-deep: var(--accent-deep);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--btn); color: #3a2410;
+  font-family: var(--font-display); font-weight: 700; font-size: 17px;
+  padding: 14px 26px; border-radius: 18px;
+  box-shadow: 0 5px 0 var(--btn-deep), 0 10px 20px rgba(217, 127, 53, 0.3);
+  transition: transform 110ms ease, box-shadow 110ms ease;
+  user-select: none; -webkit-user-select: none;
+}
+.btn3d:active { transform: translateY(5px); box-shadow: 0 0 0 var(--btn-deep); }
+
+.game-root { display: flex; flex-direction: column; flex: 1; padding-bottom: 16px; }
