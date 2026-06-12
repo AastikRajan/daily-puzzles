@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSettings, applyTheme } from './state/settings';
 import GameView from './components/GameView';
 
