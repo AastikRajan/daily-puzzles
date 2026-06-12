@@ -31,6 +31,9 @@ test('reveal phase shows, then walk the BFS solution to escape and share', async
   const solution = solveMaze(maze);
 
   await page.goto('./');
+  await expect(page.getByTestId('start-overlay')).toBeVisible();
+  await page.screenshot({ path: path.join(ARTIFACTS, 'title-mobile-dark.png') });
+  await page.getByTestId('start-btn').click();
   await expect(page.getByTestId('reveal-tag')).toBeVisible();
   await page.screenshot({ path: path.join(ARTIFACTS, 'reveal-mobile-dark.png') });
 

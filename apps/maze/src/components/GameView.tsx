@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { utcDateString, msUntilNextPuzzle } from '@daily-logic/engine';
 import { dailyMaze, canMove, step, DIRS, type Maze } from '../engine/maze';
 import { tap, pop, death } from '../lib/haptics';
+import { sfxClick, sfxBump, sfxEcho, sfxStart } from '../lib/sfx';
 import { load, save } from '../lib/storage';
 import { useSettings } from '../state/settings';
 
@@ -21,6 +22,7 @@ export default function GameView() {
   const date = utcDateString();
   const mazeRef = useRef<Maze>(dailyMaze(date));
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [started, setStarted] = useState(false);
   const [phase, setPhase] = useState<Phase>('reveal');
   const [pos, setPos] = useState(mazeRef.current.start);
   const [bumps, setBumps] = useState(0);
@@ -34,17 +36,20 @@ export default function GameView() {
   const theme = useSettings((s) => s.theme);
   const setSettings = useSettings((s) => s.set);
 
-  // reveal → dark transition
+  // reveal Ã¢â€ â€™ dark transition (the memorise clock starts at PLAY, not load)
   useEffect(() => {
+    if (!started) return;
+    revealStart.current = Date.now();
     const t = setTimeout(() => {
       setPhase((p) => (p === 'reveal' ? 'dark' : p));
       setStartedAt(Date.now());
     }, mazeRef.current.revealMs);
+    return () => clearTimeout(t);
+  }, [started]);
+
+  useEffect(() => {
     const id = setInterval(() => setCountdown(msUntilNextPuzzle()), 1000);
-    return () => {
-      clearTimeout(t);
-      clearInterval(id);
-    };
+    return () => clearInterval(id);
   }, []);
 
   // timer
@@ -61,15 +66,18 @@ export default function GameView() {
       setPos((cur) => {
         if (!canMove(m, cur, dirIdx)) {
           setBumps((b) => b + 1);
+          sfxBump();
           bumpFlash.current = { cell: cur, dir: dirIdx, t: Date.now() };
           death();
           return cur;
         }
         tap();
+        sfxClick();
         const nxt = step(m, cur, dirIdx);
         if (nxt === m.exit) {
           setPhase('won');
           pop();
+          sfxStart();
           const lastWin = load<string>('streak.last', '');
           if (lastWin !== date) {
             const y = new Date(`${date}T00:00:00Z`);
@@ -92,6 +100,7 @@ export default function GameView() {
     if (phase !== 'dark' || echoesLeft <= 0) return;
     setEchoesLeft((e) => e - 1);
     setEchoUntil(Date.now() + 900);
+    sfxEcho();
     tap();
   }, [phase, echoesLeft]);
 
@@ -103,7 +112,9 @@ export default function GameView() {
       bumps: () => bumps,
       move: (d: number) => move(d),
       echo: () => echo(),
+      start: () => setStarted(true),
       skipReveal: () => {
+        setStarted(true);
         setPhase((p) => (p === 'reveal' ? 'dark' : p));
         setStartedAt((s) => s || Date.now());
       },
@@ -117,7 +128,7 @@ export default function GameView() {
     let raf = 0;
     const draw = () => {
       const m = mazeRef.current;
-      const w = Math.min(window.innerWidth - 24, 470);
+      const w = Math.min(window.innerWidth - 24, window.innerHeight - 240, 760);
       const cell = Math.floor(w / m.size);
       const W = cell * m.size;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -140,7 +151,7 @@ export default function GameView() {
       // visibility mask radius (in dark phase a lantern around the player)
       const seeR = lit ? W * 2 : cell * 1.9;
 
-      // exit glow (always faintly visible — the goal calls to you)
+      // exit glow (always faintly visible Ã¢â‚¬â€ the goal calls to you)
       const ex = (m.exit % m.size) * cell + cell / 2;
       const ey = Math.floor(m.exit / m.size) * cell + cell / 2;
       const eg = ctx.createRadialGradient(ex, ey, 1, ex, ey, cell * 1.1);
@@ -173,7 +184,7 @@ export default function GameView() {
       }
       ctx.shadowBlur = 0;
 
-      // bump flash — show the wall you hit in red
+      // bump flash Ã¢â‚¬â€ show the wall you hit in red
       const bf = bumpFlash.current;
       if (bf && now - bf.t < 450) {
         const a = 1 - (now - bf.t) / 450;
@@ -303,7 +314,28 @@ export default function GameView() {
 
       <div className="maze-stage" onPointerDown={onDown} onPointerUp={onUp}>
         <canvas ref={canvasRef} className="game-canvas maze-canvas" data-testid="game-canvas" />
-        {phase === 'reveal' && <div className="reveal-tag" data-testid="reveal-tag">MEMORIZE…</div>}
+        {started && phase === 'reveal' && <div className="reveal-tag" data-testid="reveal-tag">MEMORIZE…</div>}
+        {!started && (
+          <div className="start-overlay" data-testid="start-overlay">
+            <h1 className="start-title">Echo Maze</h1>
+            <p className="start-sub">memorize it lit — escape it dark</p>
+            <div className="howto-row">
+              <span>👀 memorize</span>
+              <span>👆 swipe = move</span>
+              <span>🔔 echo = re-light</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={() => {
+                sfxStart();
+                setStarted(true);
+              }}
+            >
+              ▶ &nbsp;PLAY
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="maze-controls">

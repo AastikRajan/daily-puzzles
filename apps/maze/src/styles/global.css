@@ -1,4 +1,4 @@
-/* ————— Snake Pop design system: NEON ARCADE —————
+/* â€”â€”â€”â€”â€” Snake Pop design system: NEON ARCADE â€”â€”â€”â€”â€”
    Dark-first: deep void background, neon segment colors,
    glassy raised panels, Duolingo-style 3D buttons. */
 
@@ -20,7 +20,7 @@
     0 14px 36px rgba(0, 0, 0, 0.55);
   --edge-shadow: rgba(0, 0, 0, 0.6);
 
-  /* snake segment colors — 5 vivid neons */
+  /* snake segment colors â€” 5 vivid neons */
   --c0: #00f5a0;  /* neon mint */
   --c0-deep: #00c47e;
   --c1: #ff4ecd;  /* hot pink */
@@ -32,7 +32,7 @@
   --c4: #ff7b2e;  /* vivid orange */
   --c4-deep: #cc5a12;
 
-  /* accent for UI (green→pink gradient, brand mark) */
+  /* accent for UI (greenâ†’pink gradient, brand mark) */
   --accent: #00f5a0;
   --accent-deep: #00c47e;
   --g-accent: linear-gradient(135deg, #00f5a0, #ff4ecd);
@@ -164,7 +164,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   transition-duration: 0.01ms !important;
 }
 
-/* ——— game layout ——— */
+/* â€”â€”â€” game layout â€”â€”â€” */
 .game-root {
   position: relative;
   width: 100%;
@@ -311,7 +311,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
   font-variant-numeric: tabular-nums;
 }
 
-/* ——— maze-specific ——— */
+/* â€”â€”â€” maze-specific â€”â€”â€” */
 .app-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
 .brand {
   font-family: var(--font-display);
@@ -351,3 +351,52 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 .countdown-note strong { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
 .maze-root .hud { position: static; transform: none; }
 .maze-root .hint-text { position: static; }
+
+/* â€”â€”â€” title screen â€”â€”â€” */
+.start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  background: radial-gradient(60% 50% at 50% 42%, rgba(6,7,15,0.35) 0%, rgba(6,7,15,0.85) 100%);
+  z-index: 25;
+  padding: 24px;
+  text-align: center;
+  border-radius: 18px;
+}
+.start-title {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 8vw, 60px);
+  font-weight: 800;
+  margin: 0;
+  background: linear-gradient(100deg, #7df0ff, #ffe066);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 22px rgba(125, 240, 255, 0.45));
+}
+.start-sub { font-size: 14.5px; font-weight: 700; color: var(--ink-soft); margin: -5px 0 2px; }
+.howto-row { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; font-size: 13px; font-weight: 800; color: var(--ink); }
+.howto-row span {
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 12px;
+  padding: 7px 12px;
+  box-shadow: 0 2px 0 var(--edge-shadow);
+}
+.start-btn {
+  font-size: 20px;
+  padding: 15px 46px;
+  margin-top: 6px;
+  --btn: #7df0ff;
+  --btn-deep: #3eb8cc;
+  color: #06222b;
+  animation: start-glow 1.4s ease-in-out infinite;
+}
+@keyframes start-glow {
+  0%, 100% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 16px rgba(125, 240, 255, 0.35); }
+  50% { box-shadow: 0 5px 0 var(--btn-deep), 0 0 40px rgba(125, 240, 255, 0.8); }
+}
