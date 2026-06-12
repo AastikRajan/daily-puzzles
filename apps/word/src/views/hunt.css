@@ -1,0 +1,87 @@
+.hunt-view {
+  gap: 0;
+}
+
+/* Word list */
+.hunt-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.hunt-word {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+  transition: background 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+.hunt-word.found {
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+/* Grid */
+.hunt-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 0 var(--edge-shadow), var(--card-shadow);
+  padding: 8px;
+  margin: 0 0 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+
+.hunt-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: clamp(13px, 4vw, 18px);
+  font-weight: 700;
+  border-radius: 6px;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.hunt-cell.selecting {
+  background: var(--c-hunt-soft);
+  border-color: var(--c-hunt);
+  color: var(--c-hunt);
+}
+
+.hunt-cell.found {
+  font-weight: 800;
+}
+
+/* Selecting word display */
+.selecting-word {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--c-hunt);
+  min-height: 32px;
+  letter-spacing: 0.08em;
+  animation: fade-in 100ms ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
