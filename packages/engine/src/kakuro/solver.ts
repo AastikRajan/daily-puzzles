@@ -52,6 +52,8 @@ export function countKakuroSolutions(
   givens?: Map<number, number>,
   /** When provided, every found solution is pushed here (up to cap). */
   allSolutions?: Map<number, number>[],
+  /** Node budget; exceeded ⇒ returns -1 (undetermined). */
+  budget = 300_000,
 ): number {
   // per-run state
   const placedMask = new Array<number>(runs.length).fill(0);
@@ -86,6 +88,7 @@ export function countKakuroSolutions(
   }
 
   let count = 0;
+  let nodes = 0;
 
   function candidates(cell: number): number {
     const cr = cellRuns.get(cell)!;
@@ -95,6 +98,7 @@ export function countKakuroSolutions(
   }
 
   function rec(): boolean {
+    if (++nodes > budget) return true; // abort search
     // MRV
     let best = -1;
     let bestMask = 0;
@@ -141,5 +145,6 @@ export function countKakuroSolutions(
   }
 
   rec();
+  if (nodes > budget) return -1;
   return count;
 }
