@@ -1,9 +1,10 @@
 # Changelog
 
-## Phase 6 — Polish + docs (in progress)
+## Phase 6 — Polish + docs ✅ (FINAL — all gates green)
 - capacitor.config.ts committed; PORTING.md with exact Mac-day iOS steps + App Store metadata (EN with ASO keywords + HI/ES/DE/JA translations in /store-metadata).
 - README, DEPLOY.md (Vercel + GitHub Pages with ready Actions workflow).
-- Engine hardening from full-gate run: kakuro counting solver gained a node budget + reveal-on-timeout repair (a rare hard-layout seed could previously hang generation).
+- Engine hardening from full-gate run: kakuro fill + counting solvers gained node budgets and reveal-on-timeout repair (a rare hard-layout seed could previously hang full-volume generation; full gate now: 6 files / 16 tests in ~18s).
+- **Final verification from clean checkout**: `npm ci` → engine 16/16 → web unit 13/13 → Playwright 15/15 (five full puzzle playthroughs, offline reload-and-play, share clipboard, streaks, archive gate, 30-screenshot gallery). Lighthouse mobile on production build: perf 96 / PWA 100 / a11y 100 / best-practices 100.
 
 ## Phase 5 — PWA + performance ✅
 - vite-plugin-pwa: Workbox precache (fonts/css/js/html/icons), autoUpdate SW, full manifest.
