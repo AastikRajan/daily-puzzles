@@ -40,7 +40,7 @@ export function applyTheme(theme: ThemeChoice, reducedMotion: boolean): void {
       document.head.appendChild(m);
       return m;
     })();
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()
-    || (resolved === 'dark' || resolved === 'midnight' ? '#161412' : '#faf7f2');
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-a').trim()
+    || (resolved === 'dark' || resolved === 'midnight' ? '#131331' : '#eef2ff');
   (meta as HTMLMetaElement).content = bg;
 }

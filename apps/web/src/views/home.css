@@ -1,68 +1,96 @@
 .masthead {
-  padding: 28px 0 18px;
+  padding: 26px 0 18px;
 }
 
 .masthead-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .brand-mark {
-  color: var(--ink);
   display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: var(--g-sudoku);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--c-sudoku-deep), 0 8px 16px rgba(79, 124, 255, 0.35);
+  animation: mark-bob 3.6s ease-in-out infinite;
+}
+
+@keyframes mark-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-4px) rotate(3deg); }
 }
 
 .masthead-nav {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 .masthead-nav button {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 14px;
   color: var(--ink-soft);
-  transition: background 150ms ease, color 150ms ease;
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  box-shadow: 0 3px 0 var(--edge-shadow);
+  transition: transform 110ms ease, box-shadow 110ms ease, color 130ms ease;
 }
 
 .masthead-nav button:active {
-  background: var(--hairline);
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--edge-shadow);
   color: var(--ink);
 }
 
 .masthead-date {
-  margin: 0 0 2px;
-  font-size: 13px;
-  font-weight: 600;
+  display: inline-block;
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--edge-shadow);
 }
 
 .masthead-title {
   font-family: var(--font-display);
-  font-size: 44px;
-  font-weight: 600;
-  font-variation-settings: 'opsz' 72, 'SOFT' 50;
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.04;
   letter-spacing: -0.01em;
-  line-height: 1.05;
+  background: linear-gradient(100deg, var(--c-sudoku), var(--c-binairo) 55%, var(--c-killer));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.06));
 }
 
 .masthead-streak {
-  margin: 10px 0 0;
-  font-size: 14px;
+  margin: 8px 0 0;
+  font-size: 14.5px;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   padding-bottom: 8px;
 }
 
@@ -72,24 +100,44 @@
   gap: 16px;
   text-align: left;
   padding: 16px 18px;
-  background: var(--paper-raised);
-  border: 1px solid var(--hairline);
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  transition: transform 140ms ease, border-color 140ms ease;
+  box-shadow: 0 5px 0 var(--edge-shadow), var(--card-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: transform 130ms cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 130ms ease;
+  animation: card-enter 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+
+.cards .card:nth-child(1) { animation-delay: 30ms; }
+.cards .card:nth-child(2) { animation-delay: 80ms; }
+.cards .card:nth-child(3) { animation-delay: 130ms; }
+.cards .card:nth-child(4) { animation-delay: 180ms; }
+.cards .card:nth-child(5) { animation-delay: 230ms; }
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(22px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 
 .card:active {
-  transform: scale(0.98);
+  transform: translateY(5px) scale(0.99);
+  box-shadow: 0 0 0 var(--edge-shadow), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-glyph {
-  color: var(--accent);
+  position: relative;
+  color: #fff;
   display: inline-flex;
   flex-shrink: 0;
-  background: var(--accent-soft);
-  border-radius: 10px;
-  padding: 8px;
+  background: var(--accent-grad);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    0 6px 14px var(--accent-soft);
 }
 
 .card-text {
@@ -101,13 +149,14 @@
 }
 
 .card-name {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  font-size: 19px;
 }
 
 .card-sub {
   font-size: 13.5px;
+  font-weight: 600;
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -116,7 +165,7 @@
 
 .card.done .card-sub {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .card-side {
@@ -130,8 +179,8 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--accent);
 }
 
@@ -141,35 +190,50 @@
 }
 
 .dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--hairline-strong);
-  opacity: 0.5;
+  background: var(--line-strong);
+  opacity: 0.35;
 }
 
 .dot.on {
   background: var(--accent);
   opacity: 1;
+  box-shadow: 0 0 6px var(--accent);
 }
 
 .home-foot {
   margin-top: auto;
-  padding: 20px 0 26px;
+  padding: 22px 0 26px;
   text-align: center;
-  font-size: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
 .home-foot strong {
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: 10px;
+  padding: 4px 9px;
+  box-shadow: 0 2px 0 var(--edge-shadow);
 }
 
 .back-to-today {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   color: var(--ink);
-  padding: 10px 18px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
+  padding: 12px 22px;
+  background: var(--surface-solid);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--edge-shadow);
+  transition: transform 110ms ease, box-shadow 110ms ease;
+}
+
+.back-to-today:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--edge-shadow);
 }

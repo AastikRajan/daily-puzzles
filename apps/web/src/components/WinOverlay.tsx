@@ -1,10 +1,21 @@
+import { useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import type { PuzzleType } from '@daily-logic/engine';
 import { utcDateString } from '@daily-logic/engine';
 import { useUi } from '../state/ui';
 import { useProgress } from '../state/progress';
+import { useSettings } from '../state/settings';
 import { typeStreak } from '../lib/streaks';
 import { TYPE_META } from '../lib/meta';
 import { formatTime } from '../lib/time';
+
+const CONFETTI_COLORS: Record<PuzzleType, string[]> = {
+  sudoku: ['#4f7cff', '#38c6ff', '#ffffff', '#ffd84d'],
+  killer: ['#ff5e62', '#ff9a44', '#ffffff', '#ffd84d'],
+  nonogram: ['#1fc77b', '#8fe26a', '#ffffff', '#38c6ff'],
+  kakuro: ['#ffb030', '#ffd84d', '#ffffff', '#ff5e62'],
+  binairo: ['#a44cff', '#ff6ec4', '#ffffff', '#38c6ff'],
+};
 
 export default function WinOverlay({
   type,
@@ -19,8 +30,20 @@ export default function WinOverlay({
 }) {
   const go = useUi((s) => s.go);
   const completions = useProgress((s) => s.completions);
+  const reducedMotion = useSettings((s) => s.reducedMotion);
   const streak = typeStreak(completions, type, utcDateString());
   const meta = TYPE_META[type];
+
+  useEffect(() => {
+    if (reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const colors = CONFETTI_COLORS[type];
+    confetti({ particleCount: 90, spread: 75, origin: { y: 0.62 }, colors, scalar: 1.05 });
+    const t = setTimeout(
+      () => confetti({ particleCount: 50, spread: 110, origin: { y: 0.5 }, colors, scalar: 0.8 }),
+      220,
+    );
+    return () => clearTimeout(t);
+  }, [type, reducedMotion]);
 
   return (
     <div className="win-overlay" role="dialog" aria-label="Puzzle solved" data-testid="win-overlay">
@@ -52,7 +75,12 @@ export default function WinOverlay({
           </div>
         </dl>
         <div className="win-actions">
-          <button className="btn-primary" onClick={() => go('home')} data-testid="win-home">
+          <button
+            className="btn3d"
+            style={{ '--btn': meta.accent, '--btn-deep': meta.accentDeep } as React.CSSProperties}
+            onClick={() => go('home')}
+            data-testid="win-home"
+          >
             Continue
           </button>
         </div>

@@ -61,7 +61,7 @@ export default function Archive() {
               Premium.
             </p>
             <div className="win-actions">
-              <button className="btn-primary" onClick={() => setShowPremium(false)} data-testid="premium-close">
+              <button className="btn3d" onClick={() => setShowPremium(false)} data-testid="premium-close">
                 Got it
               </button>
             </div>

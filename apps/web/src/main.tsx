@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/fraunces';
-import '@fontsource-variable/schibsted-grotesk';
+import '@fontsource-variable/baloo-2';
+import '@fontsource-variable/nunito';
 import './styles/global.css';
 import App from './App';
 

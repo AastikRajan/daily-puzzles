@@ -1,4 +1,4 @@
-.stats-hero {
+﻿.stats-hero {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -31,7 +31,7 @@
   align-items: center;
   gap: 14px;
   padding: 15px 2px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line);
 }
 
 .stats-row-name {

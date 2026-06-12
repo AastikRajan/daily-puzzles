@@ -132,7 +132,7 @@ export default function SudokuBoard({ date, difficulty }: { date: string; diffic
     let fill = 'transparent';
     if (isSel) fill = 'var(--accent-soft)';
     else if (same) fill = 'var(--accent-soft)';
-    else if (peer) fill = 'var(--hairline)';
+    else if (peer) fill = 'var(--line)';
 
     cells.push(
       <g key={i} onClick={() => setSelected(i)} data-testid={`cell-${i}`} style={{ cursor: 'pointer' }}>
@@ -181,14 +181,26 @@ export default function SudokuBoard({ date, difficulty }: { date: string; diffic
     );
   }
 
+  // checkerboard tint on alternating 3x3 boxes for instant region reading
+  const boxShade = [];
+  for (let b = 0; b < 9; b++) {
+    if (b % 2 === 0) continue;
+    const bx = (b % 3) * 3 * cellSize;
+    const by = Math.floor(b / 3) * 3 * cellSize;
+    boxShade.push(
+      <rect key={`box${b}`} x={bx} y={by} width={cellSize * 3} height={cellSize * 3}
+        fill="var(--accent)" opacity="0.06" />,
+    );
+  }
+
   const lines = [];
   for (let k = 0; k <= 9; k++) {
     const strong = k % 3 === 0;
     lines.push(
       <line key={`h${k}`} x1={0} y1={k * cellSize} x2={360} y2={k * cellSize}
-        stroke={strong ? 'var(--hairline-strong)' : 'var(--hairline)'} strokeWidth={strong ? 2 : 1} />,
+        stroke={strong ? 'var(--line-strong)' : 'var(--line)'} strokeWidth={strong ? 2.5 : 1} />,
       <line key={`v${k}`} x1={k * cellSize} y1={0} x2={k * cellSize} y2={360}
-        stroke={strong ? 'var(--hairline-strong)' : 'var(--hairline)'} strokeWidth={strong ? 2 : 1} />,
+        stroke={strong ? 'var(--line-strong)' : 'var(--line)'} strokeWidth={strong ? 2.5 : 1} />,
     );
   }
 
@@ -196,10 +208,13 @@ export default function SudokuBoard({ date, difficulty }: { date: string; diffic
     <>
       <PuzzleHeader type="sudoku" elapsedMs={session.elapsedMs} difficulty={difficulty} />
       <div className="board-wrap">
-        <svg className="board-svg" viewBox="-2 -2 364 364" data-testid="sudoku-grid">
-          {cells}
-          {lines}
-        </svg>
+        <div className="board-panel">
+          <svg className="board-svg" viewBox="-2 -2 364 364" data-testid="sudoku-grid">
+            {boxShade}
+            {cells}
+            {lines}
+          </svg>
+        </div>
       </div>
 
       <Toolbar>

@@ -36,7 +36,13 @@ function Card({ type, date }: { type: PuzzleType; date: string }) {
   return (
     <button
       className={`card ${done ? 'done' : ''}`}
-      style={{ '--accent': meta.accent, '--accent-soft': meta.accentSoft } as React.CSSProperties}
+      style={
+        {
+          '--accent': meta.accent,
+          '--accent-soft': meta.accentSoft,
+          '--accent-grad': meta.grad,
+        } as React.CSSProperties
+      }
       onClick={() => openPuzzle(type, date)}
       data-testid={`card-${type}`}
     >
@@ -71,7 +77,7 @@ function Card({ type, date }: { type: PuzzleType; date: string }) {
           <span className="check" aria-label="completed">
             <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
               <circle cx="11" cy="11" r="10" fill="var(--accent)" />
-              <path d="M6.5 11.5l3 3 6-6.5" stroke="var(--paper)" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 11.5l3 3 6-6.5" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
         ) : (

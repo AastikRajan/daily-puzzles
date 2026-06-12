@@ -1,36 +1,55 @@
-/* ————— Daily Logic design tokens: editorial newsprint ————— */
+/* ————— Daily Logic design system: ARCADE POP —————
+   Tactile game UI: vivid gradient accents, glassy raised cards,
+   Duolingo-style 3D edge buttons, springy micro-interactions. */
 
 :root {
-  /* paper + ink */
-  --paper: #faf7f2;
-  --paper-raised: #ffffff;
-  --ink: #1c1916;
-  --ink-soft: rgba(28, 25, 22, 0.62);
-  --ink-faint: rgba(28, 25, 22, 0.38);
-  --hairline: rgba(28, 25, 22, 0.14);
-  --hairline-strong: rgba(28, 25, 22, 0.32);
-  --shadow: 0 1px 2px rgba(28, 25, 22, 0.05), 0 4px 16px rgba(28, 25, 22, 0.06);
+  /* stage (background) */
+  --bg-a: #eef2ff;
+  --bg-b: #fdeFf7;
+  --bg-c: #e7fbff;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-solid: #ffffff;
+  --surface-edge: rgba(255, 255, 255, 0.65);
+  --ink: #232347;
+  --ink-soft: rgba(35, 35, 71, 0.64);
+  --ink-faint: rgba(35, 35, 71, 0.4);
+  --line: rgba(35, 35, 71, 0.1);
+  --line-strong: rgba(35, 35, 71, 0.45);
+  --card-shadow:
+    0 2px 6px rgba(60, 50, 120, 0.08),
+    0 12px 32px rgba(60, 50, 120, 0.14);
+  --edge-shadow: rgba(60, 50, 120, 0.22);
 
-  /* per-puzzle accents (muted editorial set) */
-  --c-sudoku: #3a5bc7;
-  --c-sudoku-soft: rgba(58, 91, 199, 0.1);
-  --c-killer: #bb4430;
-  --c-killer-soft: rgba(187, 68, 48, 0.1);
-  --c-nonogram: #2c7a52;
-  --c-nonogram-soft: rgba(44, 122, 82, 0.1);
-  --c-kakuro: #b07612;
-  --c-kakuro-soft: rgba(176, 118, 18, 0.12);
-  --c-binairo: #7a4a9e;
-  --c-binairo-soft: rgba(122, 74, 158, 0.1);
+  /* per-game gradient accents */
+  --g-sudoku: linear-gradient(135deg, #4f7cff, #38c6ff);
+  --c-sudoku: #4f7cff;
+  --c-sudoku-deep: #3a5ed9;
+  --c-sudoku-soft: rgba(79, 124, 255, 0.14);
+  --g-killer: linear-gradient(135deg, #ff5e62, #ff9a44);
+  --c-killer: #ff5e62;
+  --c-killer-deep: #d9434b;
+  --c-killer-soft: rgba(255, 94, 98, 0.14);
+  --g-nonogram: linear-gradient(135deg, #1fc77b, #8fe26a);
+  --c-nonogram: #1fc77b;
+  --c-nonogram-deep: #14a361;
+  --c-nonogram-soft: rgba(31, 199, 123, 0.15);
+  --g-kakuro: linear-gradient(135deg, #ffb030, #ffd84d);
+  --c-kakuro: #f5a623;
+  --c-kakuro-deep: #d98e16;
+  --c-kakuro-soft: rgba(245, 166, 35, 0.16);
+  --g-binairo: linear-gradient(135deg, #a44cff, #ff6ec4);
+  --c-binairo: #a44cff;
+  --c-binairo-deep: #8536d9;
+  --c-binairo-soft: rgba(164, 76, 255, 0.14);
 
-  --good: #2c7a52;
-  --bad: #bb4430;
+  --good: #1fc77b;
+  --bad: #ff5e62;
 
-  --font-display: 'Fraunces Variable', 'Georgia', serif;
-  --font-ui: 'Schibsted Grotesk Variable', 'Helvetica Neue', sans-serif;
+  --font-display: 'Baloo 2 Variable', 'Comic Sans MS', cursive;
+  --font-ui: 'Nunito Variable', 'Segoe UI', sans-serif;
 
-  --radius: 14px;
-  --radius-small: 8px;
+  --radius: 22px;
+  --radius-small: 14px;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -39,42 +58,66 @@
 }
 
 [data-theme='dark'] {
-  --paper: #161412;
-  --paper-raised: #201d1a;
-  --ink: #ece7df;
-  --ink-soft: rgba(236, 231, 223, 0.62);
-  --ink-faint: rgba(236, 231, 223, 0.4);
-  --hairline: rgba(236, 231, 223, 0.16);
-  --hairline-strong: rgba(236, 231, 223, 0.34);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --bg-a: #131331;
+  --bg-b: #2a1245;
+  --bg-c: #0e1f3d;
+  --surface: rgba(34, 32, 70, 0.82);
+  --surface-solid: #262450;
+  --surface-edge: rgba(255, 255, 255, 0.08);
+  --ink: #f1efff;
+  --ink-soft: rgba(241, 239, 255, 0.66);
+  --ink-faint: rgba(241, 239, 255, 0.4);
+  --line: rgba(241, 239, 255, 0.12);
+  --line-strong: rgba(241, 239, 255, 0.5);
+  --card-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    0 14px 36px rgba(0, 0, 0, 0.35);
+  --edge-shadow: rgba(0, 0, 0, 0.5);
 
-  --c-sudoku: #7d97e8;
-  --c-sudoku-soft: rgba(125, 151, 232, 0.16);
-  --c-killer: #e07a62;
-  --c-killer-soft: rgba(224, 122, 98, 0.16);
-  --c-nonogram: #5cb88a;
-  --c-nonogram-soft: rgba(92, 184, 138, 0.15);
-  --c-kakuro: #d9a544;
-  --c-kakuro-soft: rgba(217, 165, 68, 0.16);
-  --c-binairo: #b08ad1;
-  --c-binairo-soft: rgba(176, 138, 209, 0.16);
+  --c-sudoku: #6f95ff;
+  --c-sudoku-deep: #4a6ce0;
+  --c-sudoku-soft: rgba(111, 149, 255, 0.2);
+  --c-killer: #ff7a76;
+  --c-killer-deep: #e05a5e;
+  --c-killer-soft: rgba(255, 122, 118, 0.2);
+  --c-nonogram: #3ddd92;
+  --c-nonogram-deep: #1fb873;
+  --c-nonogram-soft: rgba(61, 221, 146, 0.18);
+  --c-kakuro: #ffc04d;
+  --c-kakuro-deep: #e0a032;
+  --c-kakuro-soft: rgba(255, 192, 77, 0.18);
+  --c-binairo: #bf7bff;
+  --c-binairo-deep: #9d54e8;
+  --c-binairo-soft: rgba(191, 123, 255, 0.2);
 
-  --good: #5cb88a;
-  --bad: #e07a62;
+  --good: #3ddd92;
+  --bad: #ff7a76;
 
   color-scheme: dark;
 }
 
 /* premium stub themes */
 [data-theme='sepia'] {
-  --paper: #f3e9d7;
-  --paper-raised: #fbf4e7;
-  --ink: #3d2f1e;
+  --bg-a: #f7ead2;
+  --bg-b: #fdf3df;
+  --bg-c: #f3dcc0;
+  --surface: rgba(255, 250, 240, 0.9);
+  --surface-solid: #fffaf0;
+  --ink: #4a3520;
 }
+
 [data-theme='midnight'] {
-  --paper: #0d1220;
-  --paper-raised: #161d30;
-  --ink: #dde4f5;
+  --bg-a: #050816;
+  --bg-b: #0c1030;
+  --bg-c: #020409;
+  --surface: rgba(16, 20, 48, 0.88);
+  --surface-solid: #131840;
+  --surface-edge: rgba(255, 255, 255, 0.07);
+  --ink: #e6ecff;
+  --ink-soft: rgba(230, 236, 255, 0.65);
+  --ink-faint: rgba(230, 236, 255, 0.4);
+  --line: rgba(230, 236, 255, 0.12);
+  --line-strong: rgba(230, 236, 255, 0.5);
   color-scheme: dark;
 }
 
@@ -90,7 +133,7 @@ html {
 body {
   margin: 0;
   min-height: 100%;
-  background: var(--paper);
+  background: var(--bg-a);
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: 16px;
@@ -98,6 +141,19 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+}
+
+/* dreamy gradient stage with floating color blobs */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(38% 30% at 12% 8%, var(--bg-b) 0%, transparent 70%),
+    radial-gradient(45% 36% at 88% 16%, var(--bg-c) 0%, transparent 72%),
+    radial-gradient(50% 42% at 50% 100%, var(--bg-b) 0%, transparent 75%),
+    var(--bg-a);
 }
 
 #root {
@@ -120,9 +176,9 @@ button {
 
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 3px solid var(--c-sudoku);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 h1, h2, h3 {
@@ -142,22 +198,71 @@ h1, h2, h3 {
   transition-duration: 0.01ms !important;
 }
 
-/* shared view scaffolding */
 .view {
   display: flex;
   flex-direction: column;
   flex: 1;
   padding: 0 20px;
-  animation: view-in 180ms ease-out;
+  animation: view-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
 }
 
 @keyframes view-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
   to { opacity: 1; transform: none; }
+}
+
+/* ————— shared tactile primitives ————— */
+
+/* raised glass panel */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Duolingo-style 3D edge button: color via --btn and --btn-deep */
+.btn3d {
+  --btn: var(--c-sudoku);
+  --btn-deep: var(--c-sudoku-deep);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--btn);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  padding: 14px 26px;
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--btn-deep), 0 10px 18px rgba(0, 0, 0, 0.18);
+  transition: transform 110ms ease, box-shadow 110ms ease, filter 150ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn3d:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 var(--btn-deep), 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.btn3d.ghost {
+  background: var(--surface-solid);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--edge-shadow), 0 10px 18px rgba(0, 0, 0, 0.1);
+}
+
+.btn3d.ghost:active {
+  box-shadow: 0 0 0 var(--edge-shadow), 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .hairline {
   border: none;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line);
   margin: 0;
 }

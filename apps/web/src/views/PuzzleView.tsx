@@ -22,7 +22,14 @@ export default function PuzzleView() {
   return (
     <div
       className="view puzzle-view"
-      style={{ '--accent': meta.accent, '--accent-soft': meta.accentSoft } as React.CSSProperties}
+      style={
+        {
+          '--accent': meta.accent,
+          '--accent-deep': meta.accentDeep,
+          '--accent-soft': meta.accentSoft,
+          '--accent-grad': meta.grad,
+        } as React.CSSProperties
+      }
     >
       <Suspense fallback={<div className="board-loading" aria-label="Loading puzzle" />}>
         <Board date={date} difficulty={difficultyForDate(date)} />

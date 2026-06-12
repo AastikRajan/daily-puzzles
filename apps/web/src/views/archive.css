@@ -1,11 +1,11 @@
-.arch-row {
+﻿.arch-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 2px;
   font-size: 15.5px;
   font-weight: 600;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--line);
   text-align: left;
 }
 
