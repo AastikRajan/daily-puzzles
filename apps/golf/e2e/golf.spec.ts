@@ -29,6 +29,7 @@ test('sink hole 1 by aiming at the cup, then finish the round and share', async 
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__golf !== 'undefined');
+  await page.getByTestId('start-btn').click();
   // dismiss intro banner
   await page.waitForTimeout(2000);
 
@@ -87,6 +88,7 @@ test('sink hole 1 by aiming at the cup, then finish the round and share', async 
 test('light theme gameplay screenshot', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__golf !== 'undefined');
+  await page.getByTestId('start-btn').click();
   await page.getByTestId('theme-toggle').click();
   await page.waitForTimeout(2200); // banner out
   await page.screenshot({ path: path.join(ARTIFACTS, 'gameplay-mobile-light.png') });

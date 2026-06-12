@@ -4,6 +4,7 @@ import { generateCourse } from '../engine/course';
 import { shoot as physShoot, step as physStep } from '../engine/physics';
 import type { HoleDef, BallState } from '../engine/types';
 import { load, save } from '../lib/storage';
+import { sfxClick, sfxPop, sfxStart } from '../lib/sfx';
 
 export type Phase = 'banner' | 'playing' | 'sinking' | 'scorecard';
 
@@ -25,7 +26,7 @@ interface GameState {
   ballState: BallState;
   gateT: number;
   aimAngle: number | null;
-  aimPower: number | null; // 0–1
+  aimPower: number | null; // 0â€“1
   stats: Stats;
 
   // Actions
@@ -88,6 +89,7 @@ export const useGame = create<GameState>((set, get) => {
       if (ballState.status === 'rolling') return;
 
       const newBall = physShoot(ballState, angleRad, power01);
+      sfxClick();
       const newStrokes = [...strokes];
       newStrokes[holeIndex] = (newStrokes[holeIndex] ?? 0) + 1;
 
@@ -108,6 +110,7 @@ export const useGame = create<GameState>((set, get) => {
       const newGateT = gateT + dt;
 
       if (sunk) {
+        sfxPop(2);
         set({ ballState: ball, gateT: newGateT, phase: 'sinking' });
         // Auto-advance after animation
         setTimeout(() => {
@@ -116,7 +119,7 @@ export const useGame = create<GameState>((set, get) => {
         return;
       }
 
-      // Check max strokes — if stopped and maxed out, force advance
+      // Check max strokes â€” if stopped and maxed out, force advance
       if (ball.status === 'stopped') {
         const currentStrokes = strokes[holeIndex] ?? 0;
         if (currentStrokes >= MAX_STROKES) {
@@ -137,7 +140,7 @@ export const useGame = create<GameState>((set, get) => {
       const nextIndex = holeIndex + 1;
 
       if (nextIndex >= 9) {
-        // Game complete — update stats
+        // Game complete â€” update stats
         const totalStrokes = strokes.reduce((a, b) => a + b, 0);
         const totalPar = holes.reduce((a, h) => a + h.par, 0);
         const vsPar = totalStrokes - totalPar;
@@ -168,6 +171,7 @@ export const useGame = create<GameState>((set, get) => {
         save(`scores.${date}`, strokes);
         save('stats', newStats);
 
+        sfxStart();
         set({ phase: 'scorecard', stats: newStats });
         return;
       }

@@ -7,6 +7,7 @@ import { GameCanvas } from './components/GameCanvas';
 import { HoleBanner } from './components/HoleBanner';
 import { buildGolfShare, shareText, holeEmoji } from './lib/share';
 import { formatCountdown, shortDate } from './lib/time';
+import { sfxStart } from './lib/sfx';
 
 declare global {
   interface Window {
@@ -86,18 +87,24 @@ export default function App() {
   const setSettings = useSettings((s) => s.set);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageW, setStageW] = useState(390);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     applyTheme(theme, reducedMotion);
   }, [theme, reducedMotion]);
 
+  // size the course by available HEIGHT so desktop fills the screen
   useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setStageW(el.clientWidth));
-    ro.observe(el);
-    setStageW(el.clientWidth);
-    return () => ro.disconnect();
+    const fit = () => {
+      const hole0 = useGame.getState().holes[useGame.getState().holeIndex];
+      const aspect = hole0 ? hole0.canvasH / hole0.canvasW : 1.54;
+      const availH = window.innerHeight - 132; // header + hud + footnote
+      const wByH = Math.floor(availH / aspect);
+      setStageW(Math.max(300, Math.min(wByH, window.innerWidth - 24, 760)));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
   }, []);
 
   // debug/test API — always exposed (harmless)
@@ -148,9 +155,30 @@ export default function App() {
         <span className="chip" data-testid="strokes-chip">Strokes <strong>{curStrokes}</strong></span>
       </div>
 
-      <div className="canvas-stage" ref={stageRef} style={{ height: canvasH }}>
+      <div className="canvas-stage" ref={stageRef} style={{ height: canvasH, width: stageW, margin: '0 auto' }}>
         <GameCanvas width={stageW} height={canvasH} />
-        <HoleBanner />
+        {started && <HoleBanner />}
+        {!started && (
+          <div className="start-overlay" data-testid="start-overlay">
+            <h1 className="start-title">Glow Golf</h1>
+            <p className="start-sub">nine neon holes · same course for everyone today</p>
+            <div className="howto-row">
+              <span>🖐 drag back = aim</span>
+              <span>✋ release = shoot</span>
+              <span>⛳ beat par</span>
+            </div>
+            <button
+              className="btn3d start-btn"
+              data-testid="start-btn"
+              onClick={() => {
+                sfxStart();
+                setStarted(true);
+              }}
+            >
+              ▶ &nbsp;PLAY
+            </button>
+          </div>
+        )}
       </div>
 
       <p className="foot-note">
