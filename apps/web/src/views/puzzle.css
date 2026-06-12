@@ -307,3 +307,16 @@
   45% { fill: var(--accent); }
   100% { fill: var(--accent-soft); }
 }
+
+@keyframes pop-in {
+  from { transform: scale(0.4); transform-origin: center; transform-box: fill-box; }
+  to { transform: scale(1); transform-origin: center; transform-box: fill-box; }
+}
+
+.board-hint-text {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: -4px 0 10px;
+}

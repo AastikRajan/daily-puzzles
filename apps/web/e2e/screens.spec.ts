@@ -29,12 +29,14 @@ for (const size of SIZES) {
       await page.waitForTimeout(400); // fonts settle
       await page.screenshot({ path: `${OUT}/home-${size.name}-${theme}.png` });
 
-      await page.getByTestId('card-sudoku').click();
-      await page.waitForSelector('[data-testid="sudoku-grid"]');
-      await page.waitForTimeout(250);
-      await page.screenshot({ path: `${OUT}/sudoku-${size.name}-${theme}.png` });
+      for (const type of ['sudoku', 'killer', 'nonogram', 'kakuro', 'binairo']) {
+        await page.getByTestId(`card-${type}`).click();
+        await page.waitForSelector(`[data-testid="${type}-grid"]`);
+        await page.waitForTimeout(250);
+        await page.screenshot({ path: `${OUT}/${type}-${size.name}-${theme}.png` });
+        await page.getByTestId('back-home').click();
+      }
 
-      await page.getByTestId('back-home').click();
       await page.getByTestId('nav-settings').click();
       await page.waitForTimeout(250);
       await page.screenshot({ path: `${OUT}/settings-${size.name}-${theme}.png` });
