@@ -4,13 +4,14 @@
  */
 import { tap, hit, clear as clearHaptic, fizzle } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxShot, sfxBounce, sfxHit, sfxClear, sfxStar, sfxFizzle, sfxStart } from '../lib/sfx';
 import { generateLevel, TURRET, SCENE_W, SCENE_H, type Target, type Wall, type LevelDef } from './levels';
 
 // ——— constants ———
 const BULLET_SPEED = 380;    // px/s logical
 const MAX_RICOCHETS = 4;
 const BULLET_R = 6;
-const TARGET_HIT_R = 22;     // slightly larger than drawn radius for forgiveness
+const TARGET_HIT_R = 22;
 const BULLET_TIME_DIST = 60;
 const BULLET_TIME_SCALE = 0.25;
 const BULLET_TIME_MS = 400;
@@ -34,7 +35,7 @@ interface Particle {
   vy: number;
   r: number;
   color: string;
-  life: number;     // 0..1
+  life: number;
   type: 'spark' | 'confetti';
   rot?: number;
   rotV?: number;
@@ -43,16 +44,17 @@ interface Particle {
 export interface HudState {
   level: number;
   shots: number;
-  stars: number;        // cumulative stars earned
-  totalStars: number;   // stars earned this level so far (0 before clear)
-  phase: 'aiming' | 'shooting' | 'cleared' | 'done';
+  stars: number;
+  totalStars: number;
+  phase: 'ready' | 'aiming' | 'shooting' | 'cleared' | 'done';
   targetsLeft: number;
+  clearStars: number;   // stars for the just-cleared level (0 until clear)
 }
 
 export interface AimState {
   active: boolean;
   angle: number;
-  preview: { x: number; y: number }[];  // dotted path points
+  preview: { x: number; y: number }[];
 }
 
 // ——— helpers ———
@@ -62,25 +64,18 @@ function reflect(vx: number, vy: number, nx: number, ny: number): { vx: number; 
   return { vx: vx - 2 * dot * nx, vy: vy - 2 * dot * ny };
 }
 
-/** Ray-march a single segment, return hit info */
 function rayMarch(
   ox: number, oy: number,
   dx: number, dy: number,
   maxDist: number,
   walls: Wall[],
 ): { dist: number; nx: number; ny: number; type: 'wall' | 'edge' } | null {
-  // Check axis-aligned walls
   let best: { dist: number; nx: number; ny: number; type: 'wall' | 'edge' } | null = null;
 
-  // Scene edges
   const edges = [
-    // left edge: x=0, normal (1,0)
     { t: -ox / dx, nx: 1, ny: 0 },
-    // right edge: x=SCENE_W, normal (-1,0)
     { t: (SCENE_W - ox) / dx, nx: -1, ny: 0 },
-    // top edge: y=0, normal (0,1)
     { t: -oy / dy, nx: 0, ny: 1 },
-    // bottom edge: y=SCENE_H, normal (0,-1)
     { t: (SCENE_H - oy) / dy, nx: 0, ny: -1 },
   ];
   for (const e of edges) {
@@ -91,7 +86,6 @@ function rayMarch(
     }
   }
 
-  // Walls (AABB slab method)
   for (const w of walls) {
     const invdx = dx !== 0 ? 1 / dx : Infinity;
     const invdy = dy !== 0 ? 1 / dy : Infinity;
@@ -107,7 +101,6 @@ function rayMarch(
     const tMax = Math.min(txMax, tyMax);
     if (tMax > 0.5 && tMin < tMax && tMin < maxDist) {
       if (!best || tMin < best.dist) {
-        // Determine normal from which axis was hit
         let nx = 0, ny = 0;
         if (txMin > tyMin) {
           nx = dx < 0 ? 1 : -1;
@@ -122,7 +115,6 @@ function rayMarch(
   return best;
 }
 
-/** Compute dotted preview path for up to 2 ricochets */
 function computePreview(
   angle: number,
   walls: Wall[],
@@ -141,16 +133,15 @@ function computePreview(
   pts.push({ x, y });
 
   for (let seg = 0; seg < segCount && totalDist < MAX_DIST; seg++) {
-    const hit = rayMarch(x, y, dx, dy, stepSize * 2, walls);
-    if (hit && hit.dist < stepSize) {
-      // bounce
-      x = x + dx * hit.dist;
-      y = y + dy * hit.dist;
+    const h = rayMarch(x, y, dx, dy, stepSize * 2, walls);
+    if (h && h.dist < stepSize) {
+      x = x + dx * h.dist;
+      y = y + dy * h.dist;
       pts.push({ x, y });
-      const r = reflect(dx, dy, hit.nx, hit.ny);
+      const r = reflect(dx, dy, h.nx, h.ny);
       dx = r.vx;
       dy = r.vy;
-      totalDist += hit.dist;
+      totalDist += h.dist;
       remainingRicochets--;
       if (remainingRicochets < 0) break;
     } else {
@@ -158,7 +149,6 @@ function computePreview(
       y += dy * stepSize;
       totalDist += stepSize;
       pts.push({ x, y });
-      // stop if out of scene
       if (x < -10 || x > SCENE_W + 10 || y < -10 || y > SCENE_H + 10) break;
     }
   }
@@ -172,13 +162,10 @@ export class BankshotGame {
   private ctx: CanvasRenderingContext2D;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  // logical scene size (matches levels.ts SCENE_W/H)
   private sceneW = SCENE_W;
   private sceneH = SCENE_H;
-  // canvas display size
   private viewW = 390;
   private viewH = 844;
-  // scale + offset to fit scene into view
   private scale = 1;
   private offsetX = 0;
   private offsetY = 0;
@@ -189,17 +176,22 @@ export class BankshotGame {
   private bullet: Bullet | null = null;
   private particles: Particle[] = [];
 
-  private shots = 0;           // shots this level
-  private totalStars = 0;       // cumulative stars
+  private shots = 0;
+  private totalStars = 0;
+  private clearStars = 0;
   private bestStars: number;
   private bestLevel: number;
 
-  private phase: HudState['phase'] = 'aiming';
+  private phase: HudState['phase'] = 'ready';
   private bulletTimeActive = false;
-  private bulletTimeStartT = 0;   // performance.now() ms
+  private bulletTimeStartT = 0;
   private timeScale = 1;
 
-  private gameTime = 0;         // running game seconds (for motion)
+  private gameTime = 0;
+
+  // screenshake
+  private shake = 0;
+  private hitstopUntil = 0;
 
   private lastRafT = 0;
   private rafId = 0;
@@ -209,12 +201,13 @@ export class BankshotGame {
   private onAim: (a: AimState) => void;
   private reducedMotion: () => boolean;
 
-  // aim state
   private aimActive = false;
-  private aimAngle = -Math.PI / 2;  // straight up default
+  private aimAngle = -Math.PI / 2;
 
-  // level clear
   private clearAt = 0;
+
+  // crosshair gutter decoration seed
+  private readonly _gutterSeed = Math.random() * 100;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -241,11 +234,9 @@ export class BankshotGame {
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
     this.viewW = w;
     this.viewH = h;
-    // Scale scene to fill width, then center vertically with a slight top bias
     const scale = w / this.sceneW;
     this.scale = scale;
     this.offsetX = 0;
-    // Center vertically — if scene is taller than view, clip; if shorter, center
     const scaledH = this.sceneH * scale;
     this.offsetY = Math.max(0, (h - scaledH) / 2);
     const dpr = this.dpr;
@@ -263,12 +254,19 @@ export class BankshotGame {
 
   // ——— public input ———
 
-  /** Called on pointer down — begin aim drag */
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this._started = true;
+    this.phase = 'aiming';
+    sfxStart();
+    this.emitHud();
+    this.emitAim(false);
+  }
+
   startAim(sx: number, sy: number): void {
     if (this.phase !== 'aiming') return;
     const lp = this.screenToLogical(sx, sy);
     const angle = Math.atan2(lp.y - TURRET.y, lp.x - TURRET.x);
-    // clamp to upper hemisphere (don't aim into floor)
     this.aimAngle = Math.max(-Math.PI, Math.min(0, angle));
     this.aimActive = true;
     this.emitAim(true);
@@ -310,11 +308,14 @@ export class BankshotGame {
       }),
       turret: () => ({ x: TURRET.x, y: TURRET.y }),
       skipLevel: () => this.advanceLevel(),
-      restart: () => this.restartLevel(),
+      restart: () => { this._started = false; this.totalStars = 0; this.loadLevel(0); this.emitHud(); this.emitAim(false); },
+      start: () => this.start(),
     };
   }
 
   // ——— level management ———
+
+  private _started = false;
 
   private loadLevel(idx: number): void {
     this.levelIndex = idx;
@@ -322,17 +323,14 @@ export class BankshotGame {
     this.targets = this.levelDef.targets.map(t => ({ ...t, alive: true, hitAt: 0 }));
     this.bullet = null;
     this.shots = 0;
-    this.phase = 'aiming';
+    this.clearStars = 0;
+    this.phase = this._started ? 'aiming' : 'ready';
     this.bulletTimeActive = false;
     this.timeScale = 1;
     this.particles = [];
+    this.shake = 0;
   }
 
-  private restartLevel(): void {
-    this.loadLevel(this.levelIndex);
-    this.emitHud();
-    this.emitAim(false);
-  }
 
   private advanceLevel(): void {
     const next = this.levelIndex + 1;
@@ -368,6 +366,7 @@ export class BankshotGame {
       active: true,
     };
     this.phase = 'shooting';
+    sfxShot();
     this.emitHud();
     tap();
   }
@@ -379,7 +378,9 @@ export class BankshotGame {
     if (document.visibilityState === 'visible') {
       const rawDt = Math.min((t - this.lastRafT) / 1000, 0.05);
 
-      // bullet time scaling
+      // hitstop
+      const hitstopActive = Date.now() < this.hitstopUntil;
+
       if (this.bulletTimeActive) {
         const elapsed = t - this.bulletTimeStartT;
         if (elapsed > BULLET_TIME_MS) {
@@ -390,8 +391,11 @@ export class BankshotGame {
         }
       }
 
-      const dt = rawDt * this.timeScale;
-      this.gameTime += rawDt; // game time advances at real speed for motion
+      const timeScale = hitstopActive ? 0.05 : this.timeScale;
+      const dt = rawDt * timeScale;
+      this.gameTime += rawDt;
+
+      this.shake = Math.max(0, this.shake - rawDt * 12);
 
       this.step(dt, rawDt, t);
       this.render();
@@ -401,23 +405,14 @@ export class BankshotGame {
   };
 
   private step(dt: number, _rawDt: number, nowMs: number): void {
-    // Update moving targets
-    for (const t of this.targets) {
-      if (!t.alive) {
-        // death pulse
-      }
-    }
-
-    // Bullet physics
     if (this.bullet && this.bullet.active) {
       this.stepBullet(dt, nowMs);
     }
 
-    // Particles
     for (const p of this.particles) {
       p.x += p.vx * dt * 60;
       p.y += p.vy * dt * 60;
-      p.vy += dt * 60 * 0.08; // gravity
+      p.vy += dt * 60 * 0.08;
       p.vx *= 0.97;
       p.vy *= 0.97;
       if (p.rot !== undefined && p.rotV !== undefined) p.rot += p.rotV * dt * 60;
@@ -425,7 +420,6 @@ export class BankshotGame {
     }
     this.particles = this.particles.filter(p => p.life > 0);
 
-    // Level clear check — 3 seconds so players can see the overlay
     if (this.phase === 'cleared' && this.clearAt > 0 && nowMs - this.clearAt > 3000) {
       this.advanceLevel();
     }
@@ -448,59 +442,50 @@ export class BankshotGame {
       const wallHit = rayMarch(b.x, b.y, ndx, ndy, remaining + BULLET_R, this.levelDef.walls);
 
       if (wallHit && wallHit.dist <= remaining + BULLET_R) {
-        // Move to wall hit point
         const moveDist = Math.max(0, wallHit.dist - BULLET_R * 0.5);
         b.x += ndx * moveDist;
         b.y += ndy * moveDist;
         remaining -= moveDist;
 
-        // Check target hit before bouncing
         if (this.checkTargetHits(b, nowMs)) {
           remaining = 0;
           break;
         }
 
-        // Bounce
         const ref = reflect(b.vx, b.vy, wallHit.nx, wallHit.ny);
         b.vx = ref.vx;
         b.vy = ref.vy;
         b.ricochets++;
+        sfxBounce(b.ricochets);
 
-        // Spark at bounce
         if (!this.reducedMotion()) {
           this.spawnSparks(b.x, b.y, 5, '#7ee8ff');
         }
 
         if (b.ricochets > MAX_RICOCHETS) {
-          // Fizzle
           this.fizzleBullet();
           remaining = 0;
           break;
         }
       } else {
-        // Free move
         b.x += ndx * remaining;
         b.y += ndy * remaining;
         remaining = 0;
 
-        // Check out-of-bounds
         if (b.x < -20 || b.x > SCENE_W + 20 || b.y < -20 || b.y > SCENE_H + 20) {
           this.fizzleBullet();
           break;
         }
       }
 
-      // Record trail
       b.trail.push({ x: b.x, y: b.y });
       if (b.trail.length > 60) b.trail.shift();
 
-      // Check target hits mid-step
       if (this.checkTargetHits(b, nowMs)) {
         break;
       }
     }
 
-    // Bullet time: check proximity to LAST remaining alive target
     const aliveTargets = this.targets.filter(t => t.alive);
     if (aliveTargets.length === 1 && b.active && !this.bulletTimeActive) {
       const lastTarget = aliveTargets[0]!;
@@ -523,14 +508,16 @@ export class BankshotGame {
         t.alive = false;
         t.hitAt = nowMs;
         hit();
+        sfxHit();
+        if (!this.reducedMotion()) {
+          this.shake = Math.max(this.shake, 0.6);
+        }
         this.spawnExplosion(tpos.x, tpos.y);
-        // Check if level cleared
         if (this.targets.every(t2 => !t2.alive)) {
           this.onLevelClear(nowMs);
           b.active = false;
           return true;
         }
-        // Continue flight through (piercing)
         return false;
       }
     }
@@ -541,6 +528,7 @@ export class BankshotGame {
     if (!this.bullet) return;
     this.spawnSparks(this.bullet.x, this.bullet.y, 8, '#888');
     this.bullet.active = false;
+    sfxFizzle();
     fizzle();
     this.phase = 'aiming';
     this.emitHud();
@@ -551,6 +539,7 @@ export class BankshotGame {
     this.phase = 'cleared';
     this.clearAt = nowMs;
     const stars = this.starsForShots(this.shots);
+    this.clearStars = stars;
     this.totalStars += stars;
     if (this.totalStars > this.bestStars) {
       this.bestStars = this.totalStars;
@@ -562,9 +551,18 @@ export class BankshotGame {
       save('bestLevel', this.bestLevel);
     }
     clearHaptic();
+    sfxClear();
+    // staggered star stamp sounds
+    for (let i = 0; i < stars; i++) {
+      setTimeout(() => sfxStar(i), 200 + i * 200);
+    }
     this.spawnConfetti(TURRET.x, SCENE_H / 2);
     this.bulletTimeActive = false;
     this.timeScale = 1;
+    if (!this.reducedMotion()) {
+      this.shake = 1.0;
+      this.hitstopUntil = Date.now() + 70;
+    }
     this.emitHud();
   }
 
@@ -581,8 +579,8 @@ export class BankshotGame {
   private spawnExplosion(x: number, y: number): void {
     if (this.reducedMotion()) return;
     const colors = ['#7ee8ff', '#00f5a0', '#ff4ecd', '#ffe94e', '#ff7b2e'];
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2 + Math.random() * 0.3;
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2 + Math.random() * 0.3;
       const s = 2 + Math.random() * 4;
       const color = colors[Math.floor(Math.random() * colors.length)]!;
       this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1, r: 2.5 + Math.random() * 3, color, life: 1, type: 'spark' });
@@ -592,7 +590,7 @@ export class BankshotGame {
   private spawnConfetti(cx: number, _cy: number): void {
     if (this.reducedMotion()) return;
     const colors = ['#7ee8ff', '#00f5a0', '#ff4ecd', '#ffe94e', '#ff7b2e', '#ffffff'];
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 55; i++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.6;
       const s = 3 + Math.random() * 6;
       const color = colors[Math.floor(Math.random() * colors.length)]!;
@@ -639,6 +637,7 @@ export class BankshotGame {
       totalStars: this.totalStars,
       phase: this.phase,
       targetsLeft: this.targets.filter(t => t.alive).length,
+      clearStars: this.clearStars,
     });
   }
 
@@ -658,17 +657,38 @@ export class BankshotGame {
     const W = this.viewW;
     const H = this.viewH;
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const shx = this.shake > 0 ? (Math.random() - 0.5) * 8 * this.shake : 0;
+    const shy = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
 
-    // Background
+    ctx.setTransform(dpr, 0, 0, dpr, shx * dpr, shy * dpr);
+
     const isDark = document.documentElement.dataset.theme !== 'light';
-    const bgColor = isDark ? '#0d1117' : '#eef2ff';
-    ctx.fillStyle = bgColor;
+
+    // ——— decorated gutters (slate gradient + crosshair motifs) ———
+    const gutterBg = isDark
+      ? ctx.createLinearGradient(0, 0, 0, H)
+      : ctx.createLinearGradient(0, 0, 0, H);
+
+    if (isDark) {
+      gutterBg.addColorStop(0, '#060c18');
+      gutterBg.addColorStop(0.5, '#0a1428');
+      gutterBg.addColorStop(1, '#050a14');
+    } else {
+      gutterBg.addColorStop(0, '#d8e4f8');
+      gutterBg.addColorStop(0.5, '#c8d8f0');
+      gutterBg.addColorStop(1, '#d0dcf4');
+    }
+    ctx.fillStyle = gutterBg;
     ctx.fillRect(0, 0, W, H);
 
-    // Scale/offset to fit logical scene
+    // faint crosshair motifs in gutters
+    if (this.offsetX > 4) {
+      this.drawGutterCrosshairs(isDark);
+    }
+
+    // scene with offset + scale
     ctx.save();
-    ctx.translate(this.offsetX, this.offsetY);
+    ctx.translate(this.offsetX + shx, this.offsetY + shy);
     ctx.scale(this.scale, this.scale);
 
     this.drawScene(isDark);
@@ -676,18 +696,43 @@ export class BankshotGame {
     ctx.restore();
   }
 
+  private drawGutterCrosshairs(isDark: boolean): void {
+    const ctx = this.ctx;
+    const color = isDark ? 'rgba(126,232,255,0.08)' : 'rgba(60,100,220,0.08)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    const seed = this._gutterSeed;
+    for (let i = 0; i < 8; i++) {
+      const side = i % 2 === 0 ? 0 : this.viewW - this.offsetX;
+      const gw = this.offsetX;
+      if (gw < 4) continue;
+      const cx = side === 0
+        ? 4 + ((seed * (i + 1) * 7.3) % (gw - 8))
+        : side + 4 + ((seed * (i + 1) * 5.7) % (gw - 8));
+      const cy = (((seed * (i + 1) * 11.9) % 1) + i / 8) * this.viewH;
+      const r = 8 + ((seed * (i * 3.3)) % 16);
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy);
+      ctx.lineTo(cx + r, cy);
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx, cy + r);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
   private drawScene(isDark: boolean): void {
     const ctx = this.ctx;
     const now = this.gameTime;
 
-    // ——— scene background ———
     const sceneBg = isDark ? '#111827' : '#f0f4ff';
     ctx.fillStyle = sceneBg;
     ctx.beginPath();
     ctx.roundRect(0, 0, SCENE_W, SCENE_H, 16);
     ctx.fill();
 
-    // Subtle grid
     ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,100,0.05)';
     ctx.lineWidth = 1;
     for (let x = 0; x <= SCENE_W; x += 40) {
@@ -697,23 +742,19 @@ export class BankshotGame {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(SCENE_W, y); ctx.stroke();
     }
 
-    // ——— walls ———
     for (const w of this.levelDef.walls) {
       this.drawWall(w, isDark);
     }
 
-    // ——— aim preview (dotted trajectory) ———
     if (this.aimActive && this.phase === 'aiming') {
       this.drawAimPreview(isDark);
     }
 
-    // ——— targets ———
     for (const t of this.targets) {
       const pos = this.getTargetPos(t, now);
       if (t.alive) {
         this.drawTarget(pos.x, pos.y, t.r, isDark);
       } else {
-        // death remnant: fade out puff
         const age = (performance.now() - t.hitAt) / 600;
         if (age < 1) {
           ctx.globalAlpha = 1 - age;
@@ -727,12 +768,10 @@ export class BankshotGame {
       }
     }
 
-    // ——— bullet ———
     if (this.bullet && this.bullet.active) {
       this.drawBullet(isDark);
     }
 
-    // ——— particles ———
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life);
       if (p.type === 'confetti') {
@@ -754,17 +793,14 @@ export class BankshotGame {
       ctx.globalAlpha = 1;
     }
 
-    // ——— turret ———
     this.drawTurret(isDark);
 
-    // ——— scene border ———
     ctx.strokeStyle = isDark ? 'rgba(126,232,255,0.25)' : 'rgba(60,80,200,0.15)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(1, 1, SCENE_W - 2, SCENE_H - 2, 16);
     ctx.stroke();
 
-    // ——— bullet time overlay ———
     if (this.bulletTimeActive) {
       const progress = Math.min(1, (performance.now() - this.bulletTimeStartT) / BULLET_TIME_MS);
       const alpha = 0.18 * Math.sin(progress * Math.PI);
@@ -788,7 +824,6 @@ export class BankshotGame {
     ctx.roundRect(w.x, w.y, w.w, w.h, 6);
     ctx.fill();
 
-    // Edge highlight
     ctx.strokeStyle = isDark ? 'rgba(126,232,255,0.3)' : 'rgba(80,120,220,0.3)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -798,15 +833,12 @@ export class BankshotGame {
 
   private drawTarget(x: number, y: number, r: number, isDark: boolean): void {
     const ctx = this.ctx;
-
-    // Pulsing glow
     const pulse = 0.7 + 0.3 * Math.sin(this.gameTime * 3.5);
 
     ctx.save();
     ctx.shadowColor = '#00e5ff';
     ctx.shadowBlur = 14 * pulse;
 
-    // Body — slime blob shape
     const bodyColor = isDark ? '#2de0c0' : '#10b5a0';
     const bodyDeep = isDark ? '#0a8a70' : '#077a60';
     const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
@@ -816,27 +848,21 @@ export class BankshotGame {
 
     ctx.fillStyle = grad;
     ctx.beginPath();
-
-    // Blob shape using bezier curves
     const blobOffset = r * 0.15 * Math.sin(this.gameTime * 2.2);
     ctx.ellipse(x, y + blobOffset, r, r * 0.92, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Highlight
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.beginPath();
     ctx.ellipse(x - r * 0.28, y - r * 0.25, r * 0.38, r * 0.28, -0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes
     const eyeOffsetY = -r * 0.1 + blobOffset;
     for (const ex of [-r * 0.3, r * 0.3]) {
-      // White of eye
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.ellipse(x + ex, y + eyeOffsetY, r * 0.2, r * 0.22, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Pupil — looking toward bullet if exists
       let lookDx = 0, lookDy = 0.5;
       if (this.bullet && this.bullet.active) {
         const ld = Math.hypot(this.bullet.x - x, this.bullet.y - y);
@@ -846,25 +872,21 @@ export class BankshotGame {
       ctx.beginPath();
       ctx.ellipse(x + ex + lookDx * r * 0.06, y + eyeOffsetY + lookDy * r * 0.06, r * 0.12, r * 0.13, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Eye shine
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.beginPath();
       ctx.arc(x + ex - r * 0.06, y + eyeOffsetY - r * 0.1, r * 0.055, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Tiny mouth (smile or worried)
     const mouthY = y + r * 0.28 + blobOffset;
     ctx.strokeStyle = '#1a2030';
     ctx.lineWidth = 1.8;
     ctx.lineCap = 'round';
     if (this.bullet && this.bullet.active) {
-      // Worried mouth
       ctx.beginPath();
       ctx.arc(x, mouthY + r * 0.08, r * 0.2, Math.PI * 0.15, Math.PI * 0.85, false);
       ctx.stroke();
     } else {
-      // Happy mouth
       ctx.beginPath();
       ctx.arc(x, mouthY - r * 0.1, r * 0.2, 0, Math.PI, false);
       ctx.stroke();
@@ -878,7 +900,6 @@ export class BankshotGame {
     const ctx = this.ctx;
     const b = this.bullet!;
 
-    // Trail
     if (b.trail.length > 1) {
       for (let i = 1; i < b.trail.length; i++) {
         const alpha = (i / b.trail.length) * 0.7;
@@ -896,7 +917,6 @@ export class BankshotGame {
       ctx.globalAlpha = 1;
     }
 
-    // Bullet glow
     ctx.save();
     ctx.shadowColor = '#7ee8ff';
     ctx.shadowBlur = isDark ? 22 : 14;
@@ -921,7 +941,6 @@ export class BankshotGame {
     ctx.shadowColor = isDark ? '#7ee8ff' : '#3060d0';
     ctx.shadowBlur = 12;
 
-    // Base
     const baseGrad = ctx.createRadialGradient(tx, ty, 2, tx, ty, 22);
     baseGrad.addColorStop(0, isDark ? '#4a7cff' : '#6080f0');
     baseGrad.addColorStop(1, isDark ? '#1a2a5a' : '#3050c0');
@@ -930,7 +949,6 @@ export class BankshotGame {
     ctx.arc(tx, ty, 22, 0, Math.PI * 2);
     ctx.fill();
 
-    // Barrel
     const angle = this.aimActive ? this.aimAngle : -Math.PI / 2;
     const barrelLen = 28;
     ctx.strokeStyle = isDark ? '#a0d4ff' : '#5070e0';
@@ -941,7 +959,6 @@ export class BankshotGame {
     ctx.lineTo(tx + Math.cos(angle) * barrelLen, ty + Math.sin(angle) * barrelLen);
     ctx.stroke();
 
-    // Barrel end highlight
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 4;
     ctx.globalAlpha = 0.5;
@@ -951,7 +968,6 @@ export class BankshotGame {
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Center dot
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(tx, ty, 5, 0, Math.PI * 2);

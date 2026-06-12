@@ -1,9 +1,11 @@
 /**
- * Paint Rush — auto-runner that paints the floor. Steer through color gates;
- * only matching-color floor gets painted. Finish-line paint % = stars.
+ * Paint Rush — auto-runner that paints the floor.
+ * Steer through color gates; only matching-color floor gets painted.
+ * Finish-line paint % = stars.
  */
 import { tap, pop, death } from '../lib/haptics';
 import { load, save } from '../lib/storage';
+import { sfxGate, sfxCrash, sfxFinish, sfxTick, sfxStart, sfxClick } from '../lib/sfx';
 
 const W = 390;
 const H = 700;
@@ -14,6 +16,7 @@ const STEER = 520;            // px/s lateral
 const TRACK_LEN = 7200;       // one level length
 const CELL = 30;              // paint grid cell
 const COLS = LANE_W / CELL;   // 10
+const STEP = 1000 / 60;
 
 export const PAINTS = [
   { name: 'pink', main: '#ff4ecd', deep: '#cc30a0' },
@@ -21,7 +24,7 @@ export const PAINTS = [
   { name: 'lime', main: '#a8e34d', deep: '#7eb52e' },
 ];
 
-interface Gate { y: number; halves: [number, number]; passed: boolean } // paint index per half
+interface Gate { y: number; halves: [number, number]; passed: boolean }
 interface Blocker { y: number; x: number; w: number }
 
 export interface PaintHud {
@@ -29,7 +32,7 @@ export interface PaintHud {
   level: number;
   best: number;
   color: number;
-  phase: 'playing' | 'crashed' | 'finished';
+  phase: 'ready' | 'playing' | 'crashed' | 'finished';
   stars: number;
 }
 
@@ -37,8 +40,11 @@ export class PaintGame {
   private ctx: CanvasRenderingContext2D;
   private dpr = Math.min(window.devicePixelRatio || 1, 2);
   private viewW = W;
+  private viewH = H;
+  private sceneScale = 1;   // scale to fit scene into viewport
+  private sceneOffX = 0;    // horizontal centering offset
 
-  private px = W / 2;          // player x (screen)
+  private px = W / 2;          // player x (scene coords)
   private worldY = 0;          // distance run
   private targetX: number | null = null;
   private color = 0;
@@ -47,10 +53,14 @@ export class PaintGame {
   private paint = new Map<number, number>(); // cellIndex → paint color idx
   private gates: Gate[] = [];
   private blockers: Blocker[] = [];
-  private phase: 'playing' | 'crashed' | 'finished' = 'playing';
+  private phase: 'ready' | 'playing' | 'crashed' | 'finished' = 'ready';
   private splats: { x: number; y: number; r: number; color: string; life: number }[] = [];
-  private rafId = 0;
+  private floats: { x: number; y: number; text: string; life: number }[] = [];
+  private shake = 0;
+  private hitstopUntil = 0;
+  private acc = 0;
   private lastT = 0;
+  private rafId = 0;
   private destroyed = false;
   private onHud: (h: PaintHud) => void;
   private reducedMotion: () => boolean;
@@ -72,6 +82,10 @@ export class PaintGame {
 
   resize(w: number, h: number, canvas: HTMLCanvasElement): void {
     this.viewW = w;
+    this.viewH = h;
+    // Scale scene to fit height; center horizontally
+    this.sceneScale = Math.min(w / W, h / H);
+    this.sceneOffX = (w - W * this.sceneScale) / 2;
     canvas.width = w * this.dpr;
     canvas.height = h * this.dpr;
     canvas.style.width = `${w}px`;
@@ -84,8 +98,23 @@ export class PaintGame {
     delete (window as unknown as Record<string, unknown>)['__paint'];
   }
 
+  start(): void {
+    if (this.phase !== 'ready') return;
+    this.phase = 'playing';
+    sfxStart();
+    sfxClick();
+    this.emit();
+  }
+
   steerTo(screenX: number | null): void {
-    this.targetX = screenX;
+    if (screenX === null) { this.targetX = null; return; }
+    // map screen X → scene X
+    this.targetX = (screenX - this.sceneOffX) / this.sceneScale;
+  }
+
+  steerKey(direction: 'left' | 'right' | null): void {
+    if (direction === null) { this.targetX = null; return; }
+    this.targetX = direction === 'left' ? LANE_X + 16 : LANE_X + LANE_W - 16;
   }
 
   restart(nextLevel: boolean): void {
@@ -98,22 +127,23 @@ export class PaintGame {
     this.color = 0;
     this.paint.clear();
     this.splats = [];
+    this.floats = [];
+    this.shake = 0;
     this.phase = 'playing';
     this.buildTrack();
+    sfxStart();
     this.emit();
   }
 
   private buildTrack(): void {
     this.gates = [];
     this.blockers = [];
-    // gates every ~700px; halves get two different paints
     for (let y = 600; y < TRACK_LEN - 400; y += 650 + Math.random() * 220) {
       const a = Math.floor(Math.random() * PAINTS.length);
       let b = Math.floor(Math.random() * PAINTS.length);
       if (b === a) b = (a + 1) % PAINTS.length;
       this.gates.push({ y, halves: [a, b], passed: false });
     }
-    // blockers (crash!) between gates, more with level
     const nBlockers = Math.min(4 + this.level, 12);
     for (let i = 0; i < nBlockers; i++) {
       const y = 900 + Math.random() * (TRACK_LEN - 1600);
@@ -127,12 +157,9 @@ export class PaintGame {
       pct: () => this.pct(),
       phase: () => this.phase,
       level: () => this.level,
-      steer: (frac: number) => {
-        this.px = LANE_X + frac * LANE_W;
-      },
-      finish: () => {
-        this.worldY = TRACK_LEN - 60;
-      },
+      start: () => this.start(),
+      steer: (frac: number) => { this.px = LANE_X + frac * LANE_W; },
+      finish: () => { this.worldY = TRACK_LEN - 60; },
       crash: () => this.crash(),
       restart: (next: boolean) => this.restart(next),
     };
@@ -158,24 +185,40 @@ export class PaintGame {
   private crash(): void {
     if (this.phase !== 'playing') return;
     this.phase = 'crashed';
+    sfxCrash();
     death();
+    if (!this.reducedMotion()) {
+      this.shake = 1.2;
+      this.hitstopUntil = Date.now() + 70;
+    }
     this.emit();
   }
 
   private loop = (t: number): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'visible') {
-      const dt = Math.min((t - this.lastT) / 1000, 0.04);
-      if (this.phase === 'playing') this.step(dt);
+      const scale = Date.now() < this.hitstopUntil ? 0.05 : 1;
+      this.acc += Math.min(t - this.lastT, 100) * scale;
+      while (this.acc >= STEP) {
+        this.stepFixed(STEP / 1000);
+        this.acc -= STEP;
+      }
       this.render();
     }
     this.lastT = t;
     this.rafId = requestAnimationFrame(this.loop);
   };
 
+  private stepFixed(dt: number): void {
+    if (this.phase === 'playing') this.step(dt);
+    // decay effects always
+    for (const f of this.floats) f.life -= dt * 1.1;
+    this.floats = this.floats.filter((f) => f.life > 0);
+    this.shake = Math.max(0, this.shake - dt * 10);
+  }
+
   private step(dt: number): void {
     this.worldY += RUN_SPEED * dt;
-    // steer toward pointer
     if (this.targetX !== null) {
       const diff = this.targetX - this.px;
       const m = Math.min(Math.abs(diff), STEER * dt);
@@ -201,6 +244,7 @@ export class PaintGame {
         if (next !== this.color) {
           this.color = next;
           this.splat(this.px, PAINTS[next]!.main);
+          sfxGate();
           tap();
         }
         this.emit();
@@ -223,6 +267,7 @@ export class PaintGame {
         this.best = pct;
         save('best-pct', this.best);
       }
+      sfxFinish();
       pop();
       this.emit();
     }
@@ -232,28 +277,52 @@ export class PaintGame {
 
   private splat(x: number, color: string): void {
     if (this.reducedMotion()) return;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       this.splats.push({
-        x: x + (Math.random() - 0.5) * 50,
-        y: 560 + (Math.random() - 0.5) * 40,
-        r: 4 + Math.random() * 8,
+        x: x + (Math.random() - 0.5) * 60,
+        y: 560 + (Math.random() - 0.5) * 50,
+        r: 4 + Math.random() * 10,
         color,
         life: 1,
       });
     }
   }
 
+  // expose for score countup tick sound
+  sfxTick = sfxTick;
+
   private render(): void {
     const { ctx, dpr } = this;
-    const s = this.viewW / W;
-    ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
+    const sc = this.sceneScale;
+    const ox = this.sceneOffX;
+    const shx = this.shake > 0 ? (Math.random() - 0.5) * 6 * this.shake : 0;
+    const shy = this.shake > 0 ? (Math.random() - 0.5) * 4 * this.shake : 0;
 
-    // backdrop
-    ctx.fillStyle = '#14122b';
-    ctx.fillRect(0, 0, W, H);
+    // draw at base DPR (no extra scale here — scene transform handles it)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // ——— full-viewport decorated gutters (track gradient + paint splats) ———
+    const gutterGrad = ctx.createLinearGradient(0, 0, 0, this.viewH);
+    gutterGrad.addColorStop(0, '#1a0a2e');
+    gutterGrad.addColorStop(0.5, '#2a1050');
+    gutterGrad.addColorStop(1, '#1a0828');
+    ctx.fillStyle = gutterGrad;
+    ctx.fillRect(0, 0, this.viewW, this.viewH);
+
+    // gutter paint splat artwork
+    this.drawGutterSplats(ox, this.viewW, this.viewH);
+
+    // ——— now draw the scene with letterbox transform ———
+    ctx.save();
+    ctx.translate(ox + shx, shy);
+    ctx.scale(sc, sc);
 
     const playerScreenY = 560;
-    const topWorld = this.worldY - playerScreenY; // worldY at screen top... lane scrolls down
+    const topWorld = this.worldY - playerScreenY;
+
+    // scene background
+    ctx.fillStyle = '#14122b';
+    ctx.fillRect(0, 0, W, H);
 
     // lane base
     ctx.fillStyle = '#211e3e';
@@ -268,7 +337,7 @@ export class PaintGame {
         if (p === undefined) continue;
         const sy = r * CELL - topWorld;
         ctx.fillStyle = PAINTS[p]!.main;
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.82;
         ctx.fillRect(LANE_X + c * CELL, sy, CELL + 0.5, CELL + 0.5);
       }
     }
@@ -337,7 +406,7 @@ export class PaintGame {
       ctx.beginPath();
       ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
       ctx.fill();
-      sp.life -= 0.03;
+      sp.life -= 0.02;
     }
     this.splats = this.splats.filter((sp) => sp.life > 0);
     ctx.globalAlpha = 1;
@@ -351,12 +420,11 @@ export class PaintGame {
       pg.addColorStop(1, p.deep);
       ctx.fillStyle = pg;
       ctx.shadowColor = p.main;
-      ctx.shadowBlur = 16;
+      ctx.shadowBlur = 18;
       ctx.beginPath();
       ctx.arc(this.px, playerScreenY, 17, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-      // eyes
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.arc(this.px - 5, playerScreenY - 4, 3.6, 0, Math.PI * 2);
@@ -368,6 +436,49 @@ export class PaintGame {
       ctx.arc(this.px + 5, playerScreenY - 3, 1.9, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // float texts
+    for (const f of this.floats) {
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.font = "800 18px 'Baloo 2 Variable', cursive";
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ff4ecd';
+      ctx.shadowBlur = 8;
+      ctx.fillText(f.text, f.x, f.y - (1 - f.life) * 40);
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore(); // end scene transform
+  }
+
+  private _gutterSeed = Math.random() * 1000;
+  private drawGutterSplats(sceneOffX: number, viewW: number, viewH: number): void {
+    const { ctx } = this;
+    const colors = PAINTS.map((p) => p.main);
+    ctx.save();
+    const seed = this._gutterSeed;
+    const leftGW = sceneOffX;
+    const rightStart = sceneOffX + W * this.sceneScale;
+    const rightGW = viewW - rightStart;
+    for (let i = 0; i < 16; i++) {
+      const inLeft = i % 2 === 0;
+      const gw = inLeft ? leftGW : rightGW;
+      if (gw < 8) continue;
+      const x = inLeft
+        ? 6 + ((seed * (i + 1) * 7.3) % Math.max(1, gw - 12))
+        : rightStart + 6 + ((seed * (i + 1) * 5.7) % Math.max(1, rightGW - 12));
+      const y = (((seed * (i + 1) * 13.1) % 1) + i / 16) * viewH;
+      const r = 8 + ((seed * (i + 1) * 3.3) % 24);
+      const colorIdx = i % colors.length;
+      ctx.globalAlpha = 0.15 + ((seed * (i * 2.9)) % 0.20);
+      ctx.fillStyle = colors[colorIdx]!;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 }
 

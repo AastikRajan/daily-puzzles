@@ -21,14 +21,23 @@ declare global {
       turret: () => { x: number; y: number };
       skipLevel: () => void;
       restart: () => void;
+      start: () => void;
     };
   }
 }
 
-test('level 1 renders with targets', async ({ page }) => {
+test('ready overlay shows start-btn; click starts game', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.getByTestId('start-overlay')).toBeVisible();
+  await page.getByTestId('start-btn').click();
+  await expect(page.getByTestId('start-overlay')).not.toBeVisible();
+});
+
+test('level 1 renders with targets after start', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
   const count = await page.evaluate(() => window.__bankshot.targetsLeft());
   expect(count).toBeGreaterThan(0);
@@ -40,25 +49,23 @@ test('level 1 renders with targets', async ({ page }) => {
 test('shoot at target — targetsLeft decreases within 6 shots', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
   const initialTargets = await page.evaluate(() => window.__bankshot.targetsLeft());
   expect(initialTargets).toBeGreaterThan(0);
 
-  // Try to shoot at each visible target
   let decreased = false;
   for (let attempt = 0; attempt < 6 && !decreased; attempt++) {
     const result = await page.evaluate(() => {
       const targets = window.__bankshot.targets();
       const turret = window.__bankshot.turret();
       if (targets.length === 0) return { done: true, left: 0 };
-      // Aim at the first target
       const t = targets[0]!;
       const angle = Math.atan2(t.y - turret.y, t.x - turret.x);
       window.__bankshot.shoot(angle);
       return { done: false, left: window.__bankshot.targetsLeft() };
     });
     if (result.done) { decreased = true; break; }
-    // Wait for bullet to travel
     await page.waitForTimeout(600);
     const left = await page.evaluate(() => window.__bankshot.targetsLeft());
     if (left < initialTargets) {
@@ -72,8 +79,8 @@ test('shoot at target — targetsLeft decreases within 6 shots', async ({ page }
 test('clear level 1 fully — level becomes 2', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
-  // Keep shooting at targets until level clears
   let cleared = false;
   for (let attempt = 0; attempt < 20 && !cleared; attempt++) {
     const state = await page.evaluate(() => {
@@ -81,7 +88,6 @@ test('clear level 1 fully — level becomes 2', async ({ page }) => {
       const turret = window.__bankshot.turret();
       const left = window.__bankshot.targetsLeft();
       if (left === 0) return { left: 0, shot: false };
-      // Shoot at first target
       const t = targets[0]!;
       const angle = Math.atan2(t.y - turret.y, t.x - turret.x);
       window.__bankshot.shoot(angle);
@@ -94,7 +100,6 @@ test('clear level 1 fully — level becomes 2', async ({ page }) => {
     if (left === 0) { cleared = true; }
   }
 
-  // Wait for level clear animation + auto advance (3s overlay + buffer)
   await page.waitForTimeout(3500);
 
   const level = await page.evaluate(() => window.__bankshot.level());
@@ -104,6 +109,7 @@ test('clear level 1 fully — level becomes 2', async ({ page }) => {
 test('skipLevel works', async ({ page }) => {
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
 
   const before = await page.evaluate(() => window.__bankshot.level());
   await page.evaluate(() => window.__bankshot.skipLevel());
@@ -112,29 +118,27 @@ test('skipLevel works', async ({ page }) => {
   expect(after).toBe(before + 1);
 });
 
-test('screenshots: aim preview visible, explosion/clear, dark + light', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('real input: mouse aim, fire, clear, star stamps; 1440x900 + 390x844', async ({ page }) => {
+  // Desktop
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('./');
   await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
   await page.waitForTimeout(300);
 
-  // ——— Dark: aim preview screenshot ———
-  // Simulate pointer drag to aim
   const canvas = page.getByTestId('game-canvas');
   const box = await canvas.boundingBox();
   if (box) {
-    // Start aim from bottom-center (turret area), drag up-left
     await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.85);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.25);
     await page.waitForTimeout(200);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'aim-preview-dark.png') });
+    await page.screenshot({ path: path.join(ARTIFACTS, 'aim-desktop.png') });
     await page.mouse.up();
   }
-
   await page.waitForTimeout(300);
 
-  // ——— Dark: shoot and capture the level-clear overlay ———
+  // shoot until cleared
   for (let attempt = 0; attempt < 20; attempt++) {
     const left = await page.evaluate(() => window.__bankshot.targetsLeft());
     if (left === 0) break;
@@ -148,32 +152,29 @@ test('screenshots: aim preview visible, explosion/clear, dark + light', async ({
     });
     await page.waitForTimeout(700);
   }
-
-  // Wait for cleared overlay
   await page.waitForSelector('[data-testid="level-clear-overlay"]', { timeout: 5000 }).catch(() => null);
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(ARTIFACTS, 'explosion-clear-dark.png') });
+  await page.waitForTimeout(700); // wait for star stamps
+  await page.screenshot({ path: path.join(ARTIFACTS, 'clear-desktop.png') });
 
-  // ——— Light theme ———
-  await page.getByTestId('theme-toggle').click();
-  await page.waitForTimeout(300);
-  await page.evaluate(() => window.__bankshot.skipLevel());
+  // Mobile
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  await page.waitForFunction(() => typeof window.__bankshot !== 'undefined');
+  await page.getByTestId('start-btn').click();
   await page.waitForTimeout(300);
 
-  // Aim preview in light
   const box2 = await canvas.boundingBox();
   if (box2) {
     await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height * 0.85);
     await page.mouse.down();
-    await page.mouse.move(box2.x + box2.width * 0.7, box2.y + box2.height * 0.2);
+    await page.mouse.move(box2.x + box2.width * 0.4, box2.y + box2.height * 0.3);
     await page.waitForTimeout(200);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'aim-preview-light.png') });
     await page.mouse.up();
   }
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(ARTIFACTS, 'aim-mobile.png') });
 
-  await page.waitForTimeout(300);
-
-  // Shoot in light — keep shooting until level clears
+  // shoot until cleared
   for (let attempt = 0; attempt < 20; attempt++) {
     const left = await page.evaluate(() => window.__bankshot.targetsLeft());
     if (left === 0) break;
@@ -187,9 +188,7 @@ test('screenshots: aim preview visible, explosion/clear, dark + light', async ({
     });
     await page.waitForTimeout(700);
   }
-
-  // Wait for cleared overlay
   await page.waitForSelector('[data-testid="level-clear-overlay"]', { timeout: 5000 }).catch(() => null);
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(ARTIFACTS, 'explosion-clear-light.png') });
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: path.join(ARTIFACTS, 'clear-mobile.png') });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BankshotGame, type HudState, type AimState } from '../game/game';
 import { useSettings } from '../state/settings';
+import { isMuted, setMuted, sfxClick } from '../lib/sfx';
 
 export default function GameView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -10,12 +11,13 @@ export default function GameView() {
     shots: 0,
     stars: 0,
     totalStars: 0,
-    phase: 'aiming',
+    phase: 'ready',
     targetsLeft: 0,
+    clearStars: 0,
   });
   const [aim, setAim] = useState<AimState>({ active: false, angle: -Math.PI / 2, preview: [] });
-  const setSettings = useSettings((s) => s.set);
-  const theme = useSettings((s) => s.theme);
+  const [muted, setMutedState] = useState(isMuted());
+  const [visibleStars, setVisibleStars] = useState(0);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -28,24 +30,29 @@ export default function GameView() {
     gameRef.current = game;
 
     const fit = () => {
-      const w = Math.min(window.innerWidth, 480);
+      const w = window.innerWidth;
       const h = window.innerHeight;
       game.resize(w, h, canvas);
     };
     fit();
     window.addEventListener('resize', fit);
 
-    const onVisibility = () => {
-      // game loop checks visibility itself; nothing extra needed
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
     return () => {
       window.removeEventListener('resize', fit);
-      document.removeEventListener('visibilitychange', onVisibility);
       game.destroy();
     };
   }, []);
+
+  // star stamp animation on level clear
+  useEffect(() => {
+    if (hud.phase === 'cleared') {
+      setVisibleStars(0);
+      const total = hud.clearStars;
+      for (let i = 0; i < total; i++) {
+        setTimeout(() => setVisibleStars(i + 1), 200 + i * 200);
+      }
+    }
+  }, [hud.phase, hud.clearStars]);
 
   const getCanvasPoint = (e: React.PointerEvent) => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -58,14 +65,13 @@ export default function GameView() {
     return 1;
   };
 
-  const renderStars = (n: number) =>
-    Array.from({ length: 3 }, (_, i) => (i < n ? '★' : '☆')).join('');
+  const playing = hud.phase === 'aiming' || hud.phase === 'shooting';
 
   return (
     <div className="game-root">
       <canvas
         ref={canvasRef}
-        className="game-canvas"
+        className="game-canvas fullbleed"
         data-testid="game-canvas"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLCanvasElement).setPointerCapture(e.pointerId);
@@ -80,30 +86,65 @@ export default function GameView() {
         onPointerCancel={() => gameRef.current?.cancelAim()}
       />
 
-      <div className="hud">
-        <span className="chip" data-testid="hud-level">
-          Level <strong>{hud.level}</strong>
-        </span>
-        <span className="chip" data-testid="hud-shots">
-          Shots <strong>{hud.shots}</strong>
-        </span>
-        <span className="chip star" data-testid="hud-stars">
-          <strong>{hud.stars}</strong> ★
-        </span>
-      </div>
+      {/* HUD */}
+      {playing && (
+        <div className="hud">
+          <span className="chip" data-testid="hud-level">
+            Level <strong>{hud.level}</strong>
+          </span>
+          <span className="chip" data-testid="hud-shots">
+            Shots <strong>{hud.shots}</strong>
+          </span>
+          <span className="chip star" data-testid="hud-stars">
+            <strong>{hud.stars}</strong> ★
+          </span>
+        </div>
+      )}
 
+      {/* Mute */}
       <button
         className="chip theme-btn"
-        onClick={() => setSettings({ theme: theme === 'light' ? 'dark' : 'light' })}
-        aria-label="Toggle theme"
-        data-testid="theme-toggle"
+        data-testid="mute-toggle"
+        onClick={() => {
+          const next = !muted;
+          setMuted(next);
+          setMutedState(next);
+          sfxClick();
+        }}
+        aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        {theme === 'light' ? '☾' : '☀'}
+        {muted ? '🔇' : '🔊'}
       </button>
 
-      <p className="hint-text">
-        {hud.phase === 'aiming' ? 'Drag to aim · release to fire' : ''}
-      </p>
+      {/* Hint */}
+      {playing && (
+        <p className="hint-text">
+          {hud.phase === 'aiming' ? 'Drag to aim · release to fire' : ''}
+        </p>
+      )}
+
+      {/* Ready / title overlay */}
+      {hud.phase === 'ready' && (
+        <div className="start-overlay" data-testid="start-overlay">
+          <h1 className="start-title">Bank Shot</h1>
+          <p className="start-sub">one bullet, all targets</p>
+          <div className="howto-row">
+            <span>🖐 drag = aim</span>
+            <span>release = fire</span>
+            <span>bounce off walls</span>
+          </div>
+          <button
+            className="btn3d start-btn"
+            data-testid="start-btn"
+            onClick={() => {
+              sfxClick();
+              gameRef.current?.start();
+            }}
+          >
+            ▶&nbsp;&nbsp;PLAY
+          </button>
+        </div>
+      )}
 
       {/* Level cleared overlay */}
       {hud.phase === 'cleared' && (
@@ -114,7 +155,14 @@ export default function GameView() {
               {hud.shots === 1 ? 'One shot — PERFECT!' : `${hud.shots} shots`}
             </p>
             <div className="stars-row" data-testid="level-stars">
-              {renderStars(starsForShots(hud.shots))}
+              {Array.from({ length: 3 }, (_, i) => (
+                <span
+                  key={i}
+                  className={`star-stamp ${i < visibleStars ? 'star-stamp--visible' : ''}`}
+                >
+                  {i < starsForShots(hud.shots) ? '★' : '☆'}
+                </span>
+              ))}
             </div>
             <div className="stats-row-pair">
               <div className="stat-box">
@@ -158,8 +206,8 @@ export default function GameView() {
               className="btn3d"
               data-testid="play-again-btn"
               onClick={() => {
-                // reset via debug API
-                (window as unknown as { __bankshot: { skipLevel: () => void } }).__bankshot.skipLevel();
+                sfxClick();
+                (window as unknown as { __bankshot: { restart: () => void } }).__bankshot.restart();
               }}
             >
               Play again
@@ -168,12 +216,9 @@ export default function GameView() {
         </div>
       )}
 
-      {/* Aim preview debug indicator (hidden but helps test confirm aim is active) */}
+      {/* Aim preview indicator */}
       {aim.active && (
-        <div
-          data-testid="aim-active"
-          style={{ display: 'none' }}
-        />
+        <div data-testid="aim-active" style={{ display: 'none' }} />
       )}
     </div>
   );
