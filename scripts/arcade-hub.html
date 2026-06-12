@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🕹 The Arcade — 16 games</title>
+<style>
+  :root {
+    --ink: #f1efff;
+    --soft: rgba(241,239,255,.65);
+    --surface: rgba(34,32,70,.8);
+    --edge: rgba(255,255,255,.09);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; min-height: 100dvh; color: var(--ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background:
+      radial-gradient(40% 30% at 12% 8%, #2a1245 0%, transparent 70%),
+      radial-gradient(45% 36% at 88% 16%, #0e1f3d 0%, transparent 72%),
+      radial-gradient(52% 44% at 50% 100%, #2a1245 0%, transparent 75%),
+      #131331;
+    padding: 28px 18px 48px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 {
+    font-size: clamp(34px, 7vw, 52px); font-weight: 800; margin: 8px 0 4px;
+    background: linear-gradient(100deg, #4f7cff, #a44cff 55%, #ff5e62);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .sub { color: var(--soft); font-weight: 600; margin: 0 0 26px; }
+  h2 { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--soft); margin: 26px 4px 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  a.card {
+    display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--edge); border-radius: 18px;
+    padding: 16px 16px 14px; box-shadow: 0 4px 0 rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.3);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  a.card:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,.45); }
+  a.card:hover { transform: translateY(-2px); }
+  .emoji { font-size: 30px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+  .name { font-weight: 800; font-size: 16px; }
+  .tag { font-size: 12px; color: var(--soft); font-weight: 600; line-height: 1.35; }
+  .foot { text-align: center; color: var(--soft); font-size: 12.5px; margin-top: 34px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Arcade</h1>
+  <p class="sub">16 games · all offline-capable · tap one and play</p>
+
+  <h2>Daily rituals — same puzzle for everyone, every day</h2>
+  <div class="grid">
+    <a class="card" href="/web/"><span class="emoji">🧩</span><span class="name">Daily Logic</span><span class="tag">Sudoku · Killer · Nonogram · Kakuro · Binairo</span></a>
+    <a class="card" href="/word/"><span class="emoji">🔤</span><span class="name">Daily Word</span><span class="tag">Guess · Anagrams · Word Hunt</span></a>
+    <a class="card" href="/grid/"><span class="emoji">👑</span><span class="name">Daily Grid</span><span class="tag">Queens · Tango · Zip</span></a>
+    <a class="card" href="/balance/"><span class="emoji">⚖️</span><span class="name">Balance!</span><span class="tag">Stack 8 wobbly shapes, 5 tries</span></a>
+    <a class="card" href="/golf/"><span class="emoji">⛳</span><span class="name">Glow Golf</span><span class="tag">9 neon holes a day</span></a>
+    <a class="card" href="/maze/"><span class="emoji">🔦</span><span class="name">Echo Maze</span><span class="tag">Memorize it lit, escape in the dark</span></a>
+  </div>
+
+  <h2>Arcade — one finger, infinite runs</h2>
+  <div class="grid">
+    <a class="card" href="/drop/"><span class="emoji">🍉</span><span class="name">Merge Drop</span><span class="tag">Drop &amp; merge cute orbs</span></a>
+    <a class="card" href="/snake/"><span class="emoji">🐍</span><span class="name">Snake Pop</span><span class="tag">Your body is a match-3 board</span></a>
+    <a class="card" href="/flock/"><span class="emoji">✨</span><span class="name">Flock!</span><span class="tag">Herd fireflies home</span></a>
+    <a class="card" href="/orbit/"><span class="emoji">🪐</span><span class="name">Orbit Hop</span><span class="tag">Hop rings, slingshot, dodge</span></a>
+    <a class="card" href="/nomhole/"><span class="emoji">🕳️</span><span class="name">Nom Hole</span><span class="tag">Swallow the whole city</span></a>
+    <a class="card" href="/smash/"><span class="emoji">💥</span><span class="name">Smash Drop</span><span class="tag">Crush the plate tower</span></a>
+    <a class="card" href="/bankshot/"><span class="emoji">🎯</span><span class="name">Bank Shot</span><span class="tag">One bullet, perfect ricochets</span></a>
+    <a class="card" href="/swing/"><span class="emoji">🪢</span><span class="name">Swing King</span><span class="tag">Rope-swing the canyon</span></a>
+    <a class="card" href="/paintrun/"><span class="emoji">🎨</span><span class="name">Paint Rush</span><span class="tag">Paint the floor, dodge barriers</span></a>
+    <a class="card" href="/helixtwist/"><span class="emoji">🌀</span><span class="name">Helix Twist</span><span class="tag">The ball falls — you spin the tower</span></a>
+  </div>
+
+  <p class="foot">Built in D:\Code\first game · every game is an installable PWA</p>
+</div>
+</body>
+</html>

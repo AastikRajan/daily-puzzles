@@ -13,7 +13,10 @@
     "dev": "npm run dev -w web",
     "build": "npm run build -w web",
     "preview": "npm run preview -w web",
-    "e2e": "npm run e2e -w web"
+    "e2e": "npm run e2e -w web",
+    "build:all": "node scripts/build-all.mjs",
+    "arcade": "node scripts/build-all.mjs && node scripts/arcade-server.mjs",
+    "arcade:serve": "node scripts/arcade-server.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
