@@ -1,6 +1,6 @@
 import { Rng } from '@daily-logic/engine';
-import type { HoleDef, WallSegment, Bumper, SandPatch, Gate } from './types';
-import { shoot as physShoot, simulate, BALL_RADIUS, HOLE_RADIUS } from './physics';
+import type { HoleDef, WallSegment, Bumper, SandPatch, Gate, BallState } from './types';
+import { shoot as physShoot, simulate, HOLE_RADIUS } from './physics';
 
 const CANVAS_W = 390;
 const CANVAS_H = 600;
@@ -303,12 +303,12 @@ function isCompletable(hole: HoleDef): boolean {
     const angle = (ai / angles) * Math.PI * 2;
     for (let pi = 1; pi <= powers; pi++) {
       const power = pi / powers;
-      let ball = {
+      let ball: BallState = {
         x: hole.tee.x,
         y: hole.tee.y,
         vx: 0,
         vy: 0,
-        status: 'idle' as const,
+        status: 'idle',
       };
       ball = physShoot(ball, angle, power);
       let strokes = 1;

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../state/game';
 import { useSettings } from '../state/settings';
-import { MAX_POWER_PX, BALL_RADIUS, HOLE_RADIUS, resolvedGate } from '../engine/physics';
+import { MAX_POWER_PX, BALL_RADIUS, resolvedGate } from '../engine/physics';
 import type { HoleDef, BallState } from '../engine/types';
 
 const TRAIL_LEN = 8;
@@ -19,12 +19,16 @@ export function GameCanvas({ width, height }: Props) {
   const lastTRef = useRef<number>(0);
   const pulseRef = useRef<number>(0);
 
-  const { phase, holes, holeIndex, ballState, gateT, shoot, tickPhysics, setAim, aimAngle, aimPower } = useGame();
-  const { reducedMotion } = useSettings();
+  const { phase, ballState, shoot, setAim, aimAngle, aimPower } = useGame();
 
-  const hole = holes[holeIndex];
+  // keep latest canvas dims in a ref so the stable rAF loop sees resizes
+  const dimsRef = useRef({ width, height });
+  dimsRef.current = { width, height };
 
-  // rAF loop
+  // ONE stable rAF loop for the lifetime of the component. It reads game
+  // state imperatively — listing ballState/gateT as effect deps would
+  // recreate the loop every tick and reset the frame clock (dt would
+  // collapse to 0 and the ball would never move).
   useEffect(() => {
     let running = true;
     function frame(ts: number) {
@@ -33,8 +37,9 @@ export function GameCanvas({ width, height }: Props) {
       lastTRef.current = ts;
       pulseRef.current = ts;
 
-      if (phase === 'playing' || phase === 'sinking') {
-        tickPhysics(dt);
+      const g = useGame.getState();
+      if (g.phase === 'playing' || g.phase === 'sinking') {
+        g.tickPhysics(dt);
       }
 
       draw(ts);
@@ -49,7 +54,8 @@ export function GameCanvas({ width, height }: Props) {
       running = false;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [phase, holes, holeIndex, ballState, gateT, aimAngle, aimPower, reducedMotion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Track ball trail
   useEffect(() => {
@@ -62,6 +68,10 @@ export function GameCanvas({ width, height }: Props) {
 
   function draw(ts: number) {
     const canvas = canvasRef.current;
+    const g = useGame.getState();
+    const hole = g.holes[g.holeIndex];
+    const { ballState, gateT, phase, aimAngle, aimPower } = g;
+    const { width, height } = dimsRef.current;
     if (!canvas || !hole) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -175,6 +185,7 @@ export function GameCanvas({ width, height }: Props) {
 
   function drawHole(ctx: CanvasRenderingContext2D, hole: HoleDef, ts: number) {
     const { x, y, r } = hole.hole;
+    const reducedMotion = useSettings.getState().reducedMotion;
     const pulse = reducedMotion ? 8 : 8 + Math.sin(ts / 600) * 8;
 
     // Dark hole
