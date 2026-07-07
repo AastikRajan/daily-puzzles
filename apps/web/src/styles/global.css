@@ -3,6 +3,17 @@
    Duolingo-style 3D edge buttons, springy micro-interactions. */
 
 :root {
+  /* brand: cyan → violet, shared across themes */
+  --brand: #22d3ee;
+  --brand-2: #8b5cf6;
+  --brand-deep: #5b21b6;
+  --g-brand: linear-gradient(135deg, #22d3ee, #8b5cf6);
+  --g-brand-btn: linear-gradient(135deg, #06b6d4, #7c3aed);
+  /* deeper stops in light so the big gradient title keeps contrast on paper */
+  --g-title: linear-gradient(100deg, #0891b2, #7c3aed 60%, #9333ea);
+  --brand-soft: rgba(34, 211, 238, 0.16);
+  --focus-ring: #0891b2;
+
   /* stage (background) */
   --bg-a: #eef2ff;
   --bg-b: #fdeFf7;
@@ -57,22 +68,25 @@
   color-scheme: light;
 }
 
+/* ————— premium dark: near-black stage, cyan→violet identity ————— */
 [data-theme='dark'] {
-  --bg-a: #131331;
-  --bg-b: #2a1245;
-  --bg-c: #0e1f3d;
-  --surface: rgba(34, 32, 70, 0.82);
-  --surface-solid: #262450;
-  --surface-edge: rgba(255, 255, 255, 0.08);
-  --ink: #f1efff;
-  --ink-soft: rgba(241, 239, 255, 0.66);
-  --ink-faint: rgba(241, 239, 255, 0.4);
-  --line: rgba(241, 239, 255, 0.12);
-  --line-strong: rgba(241, 239, 255, 0.5);
+  --bg-a: #050810;
+  --bg-b: #0b1226;
+  --bg-c: #140b2a;
+  --surface: rgba(14, 19, 36, 0.72);
+  --surface-solid: #101629;
+  --surface-edge: rgba(148, 163, 216, 0.14);
+  --ink: #eef2fb;
+  --ink-soft: rgba(238, 242, 251, 0.7);
+  --ink-faint: rgba(238, 242, 251, 0.44);
+  --line: rgba(238, 242, 251, 0.1);
+  --line-strong: rgba(238, 242, 251, 0.48);
   --card-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.3),
-    0 14px 36px rgba(0, 0, 0, 0.35);
-  --edge-shadow: rgba(0, 0, 0, 0.5);
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 14px 36px rgba(0, 0, 0, 0.5);
+  --edge-shadow: rgba(0, 0, 0, 0.55);
+  --focus-ring: var(--brand);
+  --g-title: linear-gradient(100deg, #22d3ee, #8b5cf6 60%, #c084fc);
 
   --c-sudoku: #6f95ff;
   --c-sudoku-deep: #4a6ce0;
@@ -156,6 +170,18 @@ body::before {
     var(--bg-a);
 }
 
+/* premium dark stage: key art under a heavy near-black scrim (keeps text AAA),
+   lifted by faint cyan/violet glows. The pseudo-element itself is fixed, so no
+   background-attachment (iOS-safe). */
+[data-theme='dark'] body::before {
+  background:
+    radial-gradient(75% 55% at 18% 0%, rgba(34, 211, 238, 0.09) 0%, transparent 62%),
+    radial-gradient(70% 50% at 88% 100%, rgba(139, 92, 246, 0.11) 0%, transparent 65%),
+    linear-gradient(180deg, rgba(5, 8, 16, 0.78) 0%, rgba(5, 8, 16, 0.68) 45%, rgba(5, 8, 16, 0.9) 100%),
+    url('/art/bg.jpg') center / cover no-repeat,
+    var(--bg-a);
+}
+
 #root {
   max-width: 560px;
   margin: 0 auto;
@@ -175,8 +201,9 @@ button {
 }
 
 button:focus-visible,
-a:focus-visible {
-  outline: 3px solid var(--c-sudoku);
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -223,10 +250,11 @@ h1, h2, h3 {
   -webkit-backdrop-filter: blur(14px);
 }
 
-/* Duolingo-style 3D edge button: color via --btn and --btn-deep */
+/* Duolingo-style 3D edge button: brand gradient by default,
+   recolorable via --btn and --btn-deep */
 .btn3d {
-  --btn: var(--c-sudoku);
-  --btn-deep: var(--c-sudoku-deep);
+  --btn: var(--g-brand-btn);
+  --btn-deep: var(--brand-deep);
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -246,9 +274,17 @@ h1, h2, h3 {
   -webkit-user-select: none;
 }
 
+@media (hover: hover) {
+  .btn3d:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.07) saturate(1.05);
+  }
+}
+
 .btn3d:active {
   transform: translateY(5px);
   box-shadow: 0 0 0 var(--btn-deep), 0 2px 6px rgba(0, 0, 0, 0.15);
+  filter: none;
 }
 
 .btn3d.ghost {

@@ -1,4 +1,37 @@
+.home {
+  position: relative;
+}
+
+/* neon key-art hero: screen-blended so its black field melts into the stage,
+   masked so it dissolves before the puzzle cards. Dark themes only. */
+.home-hero {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 330px;
+  background: url('/art/menu.jpg') 50% 42% / cover no-repeat;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.65) 55%, transparent 95%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.65) 55%, transparent 95%);
+  pointer-events: none;
+  animation: hero-drift 30s ease-in-out infinite alternate;
+}
+
+[data-theme='dark'] .home-hero,
+[data-theme='midnight'] .home-hero {
+  display: block;
+}
+
+@keyframes hero-drift {
+  from { background-position: 46% 40%; }
+  to { background-position: 54% 45%; }
+}
+
 .masthead {
+  position: relative;
   padding: 26px 0 18px;
 }
 
@@ -16,9 +49,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 13px;
-  background: var(--g-sudoku);
+  background: var(--g-brand);
   color: #fff;
-  box-shadow: 0 4px 0 var(--c-sudoku-deep), 0 8px 16px rgba(79, 124, 255, 0.35);
+  box-shadow: 0 4px 0 var(--brand-deep), 0 8px 18px rgba(34, 211, 238, 0.35);
   animation: mark-bob 3.6s ease-in-out 2;
 }
 
@@ -69,15 +102,19 @@
 
 .masthead-title {
   font-family: var(--font-display);
-  font-size: 46px;
+  font-size: clamp(40px, 11vw, 50px);
   font-weight: 800;
   line-height: 1.04;
-  letter-spacing: -0.01em;
-  background: linear-gradient(100deg, var(--c-sudoku), var(--c-binairo) 55%, var(--c-killer));
+  letter-spacing: -0.015em;
+  background: var(--g-title);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.06));
+}
+
+[data-theme='dark'] .masthead-title {
+  filter: drop-shadow(0 0 18px rgba(139, 92, 246, 0.35));
 }
 
 .masthead-streak {
@@ -121,6 +158,26 @@
   to { opacity: 1; transform: none; }
 }
 
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-soft);
+    box-shadow:
+      0 7px 0 var(--edge-shadow),
+      var(--card-shadow),
+      0 0 28px var(--accent-soft);
+  }
+
+  .card:hover .card-glyph {
+    transform: scale(1.06) rotate(-2deg);
+  }
+
+  .masthead-nav button:hover {
+    transform: translateY(-1px);
+    color: var(--ink);
+  }
+}
+
 .card:active {
   transform: translateY(5px) scale(0.99);
   box-shadow: 0 0 0 var(--edge-shadow), 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -134,6 +191,7 @@
   background: var(--accent-grad);
   border-radius: 16px;
   padding: 10px;
+  transition: transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
   box-shadow:
     inset 0 -3px 0 rgba(0, 0, 0, 0.18),
     inset 0 2px 0 rgba(255, 255, 255, 0.35),

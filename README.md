@@ -1,5 +1,7 @@
 # Daily Logic
 
+🧩 **Play now → <https://aastikrajan.github.io/daily-puzzles/>**
+
 Five fresh logic puzzles every day — **Sudoku, Killer Sudoku, Nonogram (Picross), Kakuro and
 Binairo** — identical for every player worldwide, generated deterministically from the UTC
 date. Wordle-style retention: streaks, stats, and spoiler-free emoji share cards. Installable

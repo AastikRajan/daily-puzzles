@@ -15,7 +15,8 @@ interface SettingsState {
 const stored = load<Partial<SettingsState>>('settings', {});
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  theme: stored.theme ?? 'auto',
+  // premium dark is the signature look — default for new players
+  theme: stored.theme ?? 'dark',
   reducedMotion: stored.reducedMotion ?? false,
   sound: stored.sound ?? true,
   showTimer: stored.showTimer ?? true,

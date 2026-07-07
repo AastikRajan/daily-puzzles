@@ -127,6 +127,7 @@ export default function Home() {
 
   return (
     <div className="view home">
+      <div className="home-hero" aria-hidden />
       <header className="masthead">
         <div className="masthead-row">
           <span className="brand-mark" aria-hidden>

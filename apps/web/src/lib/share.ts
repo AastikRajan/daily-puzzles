@@ -57,7 +57,7 @@ export function buildPuzzleShare(
     `Daily Logic · ${TYPE_NAME[type]} · ${shortDate(date)}`,
     `⏱️ ${formatTime(c.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`,
     `${performanceRow(type, c)} ${detail}`,
-    'https://daily-logic.app',
+    'https://aastikrajan.github.io/daily-puzzles/',
   ].join('\n');
 }
 
@@ -69,7 +69,7 @@ export function buildDailyShare(date: string, log: CompletionLog, allStreakDays:
     `Daily Logic · ${shortDate(date)}`,
     `${row} ${done}/5`,
     `⏱️ ${formatTime(totalMs)} total${allStreakDays > 1 ? ` · 🔥 ${allStreakDays} perfect days` : ''}`,
-    'https://daily-logic.app',
+    'https://aastikrajan.github.io/daily-puzzles/',
   ];
   return lines.join('\n');
 }

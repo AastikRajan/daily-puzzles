@@ -95,6 +95,14 @@
   max-width: 480px;
 }
 
+/* dark theme: the board floats in a faint pool of its accent color */
+[data-theme='dark'] .board-panel {
+  box-shadow:
+    0 6px 0 var(--edge-shadow),
+    var(--card-shadow),
+    0 0 44px var(--accent-soft, var(--brand-soft));
+}
+
 .board-svg {
   display: block;
   width: 100%;
@@ -142,10 +150,23 @@
 }
 
 .tool.active {
-  background: var(--accent);
+  background: var(--accent-grad, var(--g-brand-btn));
   border-color: transparent;
   color: #fff;
   box-shadow: 0 3px 0 var(--accent-deep, rgba(0, 0, 0, 0.3));
+}
+
+@media (hover: hover) {
+  .tool:hover:not(:disabled),
+  .key:hover:not(:disabled) {
+    transform: translateY(-1px);
+    color: var(--ink);
+  }
+
+  .key:hover:not(:disabled) {
+    color: var(--accent, var(--ink));
+    filter: brightness(1.05);
+  }
 }
 
 .tool-label {
@@ -220,8 +241,11 @@
 }
 
 .win-card {
-  background: var(--surface-solid);
-  border: 1px solid var(--surface-edge);
+  /* gradient hairline ring in the puzzle's accent (brand gradient fallback) */
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface-solid), var(--surface-solid)) padding-box,
+    var(--accent-grad, var(--g-brand)) border-box;
   border-radius: 26px;
   box-shadow: 0 8px 0 var(--edge-shadow), 0 24px 60px rgba(0, 0, 0, 0.35);
   padding: 30px 28px 26px;

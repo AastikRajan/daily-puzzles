@@ -13,12 +13,12 @@ export default defineConfig({
         short_name: 'Daily Logic',
         description:
           'Five fresh logic puzzles every day — Sudoku, Killer Sudoku, Nonogram, Kakuro and Binairo. Same puzzles for everyone, streaks, stats and shareable results.',
-        theme_color: '#eef2ff',
-        background_color: '#eef2ff',
+        theme_color: '#050810',
+        background_color: '#050810',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: './',
-        scope: './',
+        start_url: '/daily-puzzles/',
+        scope: '/daily-puzzles/',
         categories: ['games', 'puzzle', 'entertainment'],
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
@@ -27,13 +27,15 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // dark-theme art must precache so the look survives offline
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}', 'art/bg.jpg', 'art/menu.jpg'],
         navigateFallback: 'index.html',
       },
     }),
   ],
-  // relative base so the build works on GitHub Pages subpaths and inside Capacitor
-  base: './',
+  // GitHub Pages project site — served under /daily-puzzles/.
+  // (For a Capacitor wrap, override with a relative base — see PORTING.md.)
+  base: '/daily-puzzles/',
   server: {
     port: 5173,
   },
